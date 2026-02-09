@@ -107,8 +107,12 @@ const LoadingScreen = ({ isLoading, onComplete }) => {
           ref={logoRef}
           className="mb-8"
         >
-          <div className="w-24 h-24 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-neon-blue via-neon-purple to-neon-pink flex items-center justify-center">
-            <span className="text-3xl font-heading font-bold text-white">BS</span>
+          <div className="w-24 h-24 mx-auto mb-4 flex items-center justify-center">
+            <img 
+              src="/logo.png" 
+              alt="Bodh Script Club Logo" 
+              className="w-full h-full object-contain"
+            />
           </div>
           <h1 className="text-3xl font-heading font-bold gradient-text">
             Bodh Script Club
