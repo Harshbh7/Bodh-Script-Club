@@ -1321,16 +1321,34 @@ const handlers = {
 
   // Payment - Get All Payments (Admin)
   'GET /payment/admin/all': async (req, res) => {
+    console.log('🔵 [PAYMENT] Request received: GET /payment/admin/all');
+    console.log('🔵 [PAYMENT] Headers:', JSON.stringify(req.headers, null, 2));
+    
     try {
+      console.log('🔵 [PAYMENT] Connecting to database...');
       await connectDB();
+      console.log('✅ [PAYMENT] Database connected');
       
+      console.log('🔵 [PAYMENT] Verifying token...');
       const decoded = verifyToken(req);
+      console.log('✅ [PAYMENT] Token verified:', { userId: decoded.userId, role: decoded.role });
       
+      // Check if user is admin
       if (decoded.role !== 'admin' && !decoded.isAdmin) {
+        console.log('❌ [PAYMENT] Access denied - not admin');
         return res.status(403).json({ message: 'Access denied' });
       }
 
-      console.log('📋 [index.js] Fetching all payments (Admin)');
+      console.log('🔵 [PAYMENT] Fetching payments from database...');
+      
+      // Check if Payment model exists
+      if (!Payment) {
+        console.error('❌ [PAYMENT] Payment model is undefined!');
+        return res.status(500).json({ 
+          message: 'Payment model not loaded',
+          error: 'MODEL_NOT_FOUND'
+        });
+      }
 
       const payments = await Payment.find()
         .populate({
@@ -1351,7 +1369,7 @@ const handlers = {
         .lean()
         .sort({ createdAt: -1 });
 
-      console.log(`✅ [index.js] Found ${payments.length} payments`);
+      console.log(`✅ [PAYMENT] Found ${payments.length} payments`);
 
       const transformedPayments = payments.map(payment => ({
         _id: payment._id,
@@ -1377,16 +1395,23 @@ const handlers = {
         registration: payment.registration || null
       }));
 
+      console.log('✅ [PAYMENT] Sending response with', transformedPayments.length, 'payments');
+
       res.status(200).json({
         success: true,
         count: transformedPayments.length,
         payments: transformedPayments
       });
     } catch (error) {
-      console.error('❌ [index.js] Error fetching all payments:', error);
+      console.error('❌ [PAYMENT] Error occurred:', error);
+      console.error('❌ [PAYMENT] Error name:', error.name);
+      console.error('❌ [PAYMENT] Error message:', error.message);
+      console.error('❌ [PAYMENT] Error stack:', error.stack);
+      
       res.status(500).json({ 
         message: 'Failed to fetch payments', 
         error: error.message,
+        errorName: error.name,
         stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }

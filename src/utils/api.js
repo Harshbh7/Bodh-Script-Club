@@ -1,20 +1,22 @@
 import axios from 'axios';
 
 // API URL Configuration
-// Development: Uses localhost
-// Production: Uses relative path (/api) - same domain as Vercel deployment
+// CRITICAL: In Vercel, frontend and backend are on the same domain
+// So we use relative paths in production
 const getApiUrl = () => {
-  // Check if we're in production (Vercel)
+  // In production (Vercel), always use relative path
   if (import.meta.env.PROD) {
-    // In production, use relative path
     return '/api';
   }
   
-  // In development, use environment variable or localhost
+  // In development, use localhost
   return import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 };
 
 const API_URL = getApiUrl();
+
+console.log('🔗 API Base URL:', API_URL);
+console.log('🌍 Environment:', import.meta.env.PROD ? 'Production' : 'Development');
 
 const api = axios.create({
   baseURL: API_URL,
