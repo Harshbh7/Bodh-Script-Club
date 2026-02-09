@@ -1394,10 +1394,9 @@ const handlers = {
     }
   },
 
-  // Payment - Get All Payments (Admin)
+  // Payment - Get All Payments (Admin) - SIMPLIFIED FOR VERCEL
   'GET /payment/admin/all': async (req, res) => {
-    console.log('🔵 [PAYMENT] Request received: GET /payment/admin/all');
-    console.log('🔵 [PAYMENT] Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('🔵 [PAYMENT] GET /payment/admin/all - START');
     
     try {
       console.log('🔵 [PAYMENT] Connecting to database...');
@@ -1406,46 +1405,25 @@ const handlers = {
       
       console.log('🔵 [PAYMENT] Verifying token...');
       const decoded = verifyToken(req);
-      console.log('✅ [PAYMENT] Token verified:', { userId: decoded.userId, role: decoded.role });
+      console.log('✅ [PAYMENT] Token verified:', decoded.userId);
       
-      // Check if user is admin
       if (decoded.role !== 'admin' && !decoded.isAdmin) {
-        console.log('❌ [PAYMENT] Access denied - not admin');
+        console.log('❌ [PAYMENT] Access denied');
         return res.status(403).json({ message: 'Access denied' });
       }
 
-      console.log('🔵 [PAYMENT] Fetching payments from database...');
+      console.log('🔵 [PAYMENT] Fetching payments (NO POPULATE)...');
       
-      // Check if Payment model exists
-      if (!Payment) {
-        console.error('❌ [PAYMENT] Payment model is undefined!');
-        return res.status(500).json({ 
-          message: 'Payment model not loaded',
-          error: 'MODEL_NOT_FOUND'
-        });
-      }
-
+      // Fetch payments WITHOUT populate to avoid errors
       const payments = await Payment.find()
-        .populate({
-          path: 'event',
-          select: 'title date location price',
-          options: { strictPopulate: false }
-        })
-        .populate({
-          path: 'user',
-          select: 'name email',
-          options: { strictPopulate: false }
-        })
-        .populate({
-          path: 'registration',
-          select: 'registrationNo phoneNumber',
-          options: { strictPopulate: false }
-        })
+        .select('orderId paymentId amount currency status userName userEmail registrationNo phoneNumber createdAt paidAt')
         .lean()
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .limit(50);
 
       console.log(`✅ [PAYMENT] Found ${payments.length} payments`);
 
+      // Simple transformation without any lookups
       const transformedPayments = payments.map(payment => ({
         _id: payment._id,
         orderId: payment.orderId || 'N/A',
@@ -1453,41 +1431,35 @@ const handlers = {
         amount: payment.amount || 0,
         currency: payment.currency || 'INR',
         status: payment.status || 'pending',
-        userName: payment.userName || (payment.user?.name) || 'N/A',
-        userEmail: payment.userEmail || (payment.user?.email) || 'N/A',
-        registrationNo: payment.registrationNo || (payment.registration?.registrationNo) || 'N/A',
-        phoneNumber: payment.phoneNumber || (payment.registration?.phoneNumber) || 'N/A',
+        userName: payment.userName || 'N/A',
+        userEmail: payment.userEmail || 'N/A',
+        registrationNo: payment.registrationNo || 'N/A',
+        phoneNumber: payment.phoneNumber || 'N/A',
         createdAt: payment.createdAt,
         paidAt: payment.paidAt,
-        event: payment.event ? {
-          _id: payment.event._id,
-          title: payment.event.title || 'Event',
-          date: payment.event.date,
-          location: payment.event.location || 'TBA',
-          price: payment.event.price || 0
-        } : { title: 'Unknown Event' },
-        user: payment.user || null,
-        registration: payment.registration || null
+        event: { title: 'Event' }, // Simplified
+        user: null,
+        registration: null
       }));
 
-      console.log('✅ [PAYMENT] Sending response with', transformedPayments.length, 'payments');
+      console.log('✅ [PAYMENT] Sending response');
 
-      res.status(200).json({
+      return res.status(200).json({
         success: true,
         count: transformedPayments.length,
         payments: transformedPayments
       });
-    } catch (error) {
-      console.error('❌ [PAYMENT] Error occurred:', error);
-      console.error('❌ [PAYMENT] Error name:', error.name);
-      console.error('❌ [PAYMENT] Error message:', error.message);
-      console.error('❌ [PAYMENT] Error stack:', error.stack);
       
-      res.status(500).json({ 
+    } catch (error) {
+      console.error('❌ [PAYMENT] ERROR:', error.name);
+      console.error('❌ [PAYMENT] MESSAGE:', error.message);
+      console.error('❌ [PAYMENT] STACK:', error.stack);
+      
+      return res.status(500).json({ 
+        success: false,
         message: 'Failed to fetch payments', 
         error: error.message,
-        errorName: error.name,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        errorType: error.name
       });
     }
   },

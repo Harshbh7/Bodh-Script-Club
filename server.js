@@ -114,6 +114,20 @@ if (process.env.NODE_ENV !== 'production') {
 
 // API Routes - Use consolidated handler for ALL requests
 if (process.env.NODE_ENV !== 'production') {
+  // Payment history route - dedicated handler
+  app.all('/api/payment-history', async (req, res) => {
+    try {
+      const { default: paymentHistoryHandler } = await import('./api/payment-history.js');
+      await paymentHistoryHandler(req, res);
+    } catch (error) {
+      console.error('[Payment History API] Error:', error);
+      res.status(500).json({ 
+        message: 'Payment history API handler error', 
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal Server Error' 
+      });
+    }
+  });
+
   // Payment routes - handle separately
   app.all('/api/payment/*', async (req, res) => {
     try {
