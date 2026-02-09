@@ -1319,6 +1319,81 @@ const handlers = {
     }
   },
 
+  // Payment - Redirect /payment to /payment/admin/all (for backward compatibility)
+  'GET /payment': async (req, res) => {
+    console.log('⚠️ [REDIRECT] /payment → /payment/admin/all');
+    
+    try {
+      await connectDB();
+      
+      const decoded = verifyToken(req);
+      
+      if (decoded.role !== 'admin' && !decoded.isAdmin) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+
+      console.log('📋 [REDIRECT] Fetching all payments (Admin)');
+
+      const payments = await Payment.find()
+        .populate({
+          path: 'event',
+          select: 'title date location price',
+          options: { strictPopulate: false }
+        })
+        .populate({
+          path: 'user',
+          select: 'name email',
+          options: { strictPopulate: false }
+        })
+        .populate({
+          path: 'registration',
+          select: 'registrationNo phoneNumber',
+          options: { strictPopulate: false }
+        })
+        .lean()
+        .sort({ createdAt: -1 });
+
+      console.log(`✅ [REDIRECT] Found ${payments.length} payments`);
+
+      const transformedPayments = payments.map(payment => ({
+        _id: payment._id,
+        orderId: payment.orderId || 'N/A',
+        paymentId: payment.paymentId || 'Pending',
+        amount: payment.amount || 0,
+        currency: payment.currency || 'INR',
+        status: payment.status || 'pending',
+        userName: payment.userName || (payment.user?.name) || 'N/A',
+        userEmail: payment.userEmail || (payment.user?.email) || 'N/A',
+        registrationNo: payment.registrationNo || (payment.registration?.registrationNo) || 'N/A',
+        phoneNumber: payment.phoneNumber || (payment.registration?.phoneNumber) || 'N/A',
+        createdAt: payment.createdAt,
+        paidAt: payment.paidAt,
+        event: payment.event ? {
+          _id: payment.event._id,
+          title: payment.event.title || 'Event',
+          date: payment.event.date,
+          location: payment.event.location || 'TBA',
+          price: payment.event.price || 0
+        } : { title: 'Unknown Event' },
+        user: payment.user || null,
+        registration: payment.registration || null
+      }));
+
+      res.status(200).json({
+        success: true,
+        count: transformedPayments.length,
+        payments: transformedPayments
+      });
+    } catch (error) {
+      console.error('❌ [REDIRECT] Error fetching payments:', error);
+      res.status(500).json({ 
+        message: 'Failed to fetch payments', 
+        error: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+    }
+  },
+
   // Payment - Get All Payments (Admin)
   'GET /payment/admin/all': async (req, res) => {
     console.log('🔵 [PAYMENT] Request received: GET /payment/admin/all');
