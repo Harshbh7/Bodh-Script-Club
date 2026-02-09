@@ -114,7 +114,21 @@ if (process.env.NODE_ENV !== 'production') {
 
 // API Routes - Use consolidated handler for ALL requests
 if (process.env.NODE_ENV !== 'production') {
-  // Import and use the consolidated API handler for all /api/* routes
+  // Payment routes - handle separately
+  app.all('/api/payment/*', async (req, res) => {
+    try {
+      const { default: paymentHandler } = await import('./api/payment.js');
+      await paymentHandler(req, res);
+    } catch (error) {
+      console.error('[Payment API] Error:', error);
+      res.status(500).json({ 
+        message: 'Payment API handler error', 
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal Server Error' 
+      });
+    }
+  });
+
+  // Import and use the consolidated API handler for all other /api/* routes
   app.all('/api/*', async (req, res) => {
     try {
       const { default: apiHandler } = await import('./api/index.js');

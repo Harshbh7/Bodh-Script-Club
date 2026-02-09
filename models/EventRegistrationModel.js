@@ -9,7 +9,13 @@ const registrationSchema = new mongoose.Schema({
   section: String,
   department: String,
   year: String,
+  course: String,
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  
+  // Payment fields
+  payment: { type: mongoose.Schema.Types.ObjectId, ref: 'Payment' },
+  paymentStatus: { type: String, enum: ['pending', 'completed', 'free'], default: 'free' },
+  
   registeredAt: { type: Date, default: Date.now }
 });
 

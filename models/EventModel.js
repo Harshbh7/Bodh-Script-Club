@@ -11,6 +11,11 @@ const eventSchema = new mongoose.Schema({
   status: { type: String, enum: ['upcoming', 'completed', 'cancelled'], default: 'upcoming' },
   maxAttendees: Number,
   registrationCount: { type: Number, default: 0 },
+  
+  // Payment fields
+  isPaid: { type: Boolean, default: false },
+  price: { type: Number, default: 0 },
+  
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });

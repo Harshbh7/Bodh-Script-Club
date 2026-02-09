@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Users, Calendar, Image, MessageSquare, FileText, Download, 
-  CheckCircle, XCircle, Clock, Trash2, Eye, X, RefreshCw, MapPin
+  CheckCircle, XCircle, Clock, Trash2, Eye, X, RefreshCw, MapPin, IndianRupee
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import AdminNavbar from '../components/AdminNavbar';
-import { submissionsAPI, eventsAPI, testimonialsAPI, membersAPI, galleryAPI } from '../utils/api';
+import { submissionsAPI, eventsAPI, testimonialsAPI, membersAPI, galleryAPI, paymentAPI } from '../utils/api';
 
 const Admin = () => {
   const { user, loading: authLoading } = useAuth();
@@ -20,6 +20,7 @@ const Admin = () => {
   const [testimonials, setTestimonials] = useState([]);
   const [members, setMembers] = useState([]);
   const [gallery, setGallery] = useState([]);
+  const [payments, setPayments] = useState([]);
 
   // Handle tab change with proper event handling
   const handleTabChange = (tabId, event) => {
@@ -170,7 +171,7 @@ const Admin = () => {
     console.log('Fetching admin dashboard data...');
     
     try {
-      const [subsData, eventsData, testsData, membersData, galleryData] = await Promise.all([
+      const [subsData, eventsData, testsData, membersData, galleryData, paymentsData] = await Promise.all([
         submissionsAPI.getAll().catch(err => {
           console.error('Failed to fetch submissions:', err);
           return { data: [] };
@@ -190,6 +191,10 @@ const Admin = () => {
         galleryAPI.getAll().catch(err => {
           console.error('Failed to fetch gallery:', err);
           return { data: [] };
+        }),
+        paymentAPI.getAllPayments().catch(err => {
+          console.error('Failed to fetch payments:', err);
+          return { data: { payments: [] } };
         })
       ]);
 
@@ -207,6 +212,7 @@ const Admin = () => {
       setTestimonials(normalizeToArray(testsData));
       setMembers(normalizeToArray(membersData));
       setGallery(normalizeToArray(galleryData));
+      setPayments(paymentsData?.data?.payments || []);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -261,6 +267,7 @@ const Admin = () => {
   const tabs = [
     { id: 'submissions', label: 'Join Requests', icon: FileText, count: safeSubmissions.length },
     { id: 'events', label: 'Events', icon: Calendar, count: safeEvents.length },
+    { id: 'payments', label: 'Payment History', icon: IndianRupee, count: Array.isArray(payments) ? payments.length : 0 },
     { id: 'testimonials', label: 'Testimonials', icon: MessageSquare, count: safeTestimonials.length },
     { id: 'members', label: 'Members', icon: Users, count: safeMembers.length },
     { id: 'gallery', label: 'Gallery', icon: Image, count: safeGallery.length },
@@ -396,6 +403,11 @@ const Admin = () => {
                     onCreate={() => handleCreate('event')}
                     onEdit={(item) => handleEdit(item, 'event')}
                     onDelete={(id, name) => handleDelete(id, 'event', name)}
+                  />
+                )}
+                {activeTab === 'payments' && (
+                  <PaymentHistoryContent 
+                    payments={payments}
                   />
                 )}
                 {activeTab === 'testimonials' && (
@@ -677,6 +689,46 @@ const SubmissionsContent = ({ submissions, onUpdateStatus, onExport }) => {
 
 const EventsContent = ({ events, onCreate, onEdit, onDelete }) => {
   const [filter, setFilter] = useState('all');
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [showRegistrationsModal, setShowRegistrationsModal] = useState(false);
+  const [registrations, setRegistrations] = useState([]);
+  const [loadingRegistrations, setLoadingRegistrations] = useState(false);
+
+  const handleViewRegistrations = async (event) => {
+    setSelectedEvent(event);
+    setShowRegistrationsModal(true);
+    setLoadingRegistrations(true);
+    
+    try {
+      const { data } = await eventsAPI.getRegistrations(event._id);
+      setRegistrations(data.registrations || []);
+    } catch (error) {
+      console.error('Error fetching registrations:', error);
+      alert('Failed to fetch registrations');
+    } finally {
+      setLoadingRegistrations(false);
+    }
+  };
+
+  const handleExportRegistrations = async (eventId) => {
+    try {
+      const response = await eventsAPI.exportRegistrations(eventId);
+      const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const filename = `${selectedEvent?.title.replace(/[^a-z0-9]/gi, '-')}-registrations-${new Date().toISOString().split('T')[0]}.csv`;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      alert('Export successful!');
+    } catch (error) {
+      console.error('Error exporting registrations:', error);
+      alert('Failed to export registrations');
+    }
+  };
 
   const filteredEvents = events.filter(event => {
     if (filter === 'all') return true;
@@ -793,10 +845,31 @@ const EventsContent = ({ events, onCreate, onEdit, onDelete }) => {
                     <Users size={16} className="text-neon-purple" />
                     {event.registrationCount || 0} Registrations
                   </div>
+                  {event.isPaid && event.price > 0 && (
+                    <div className="flex items-center gap-2 text-sm font-body text-green-400">
+                      <IndianRupee size={16} className="text-green-400" />
+                      ₹{event.price} (Paid Event)
+                    </div>
+                  )}
+                  {!event.isPaid && (
+                    <div className="flex items-center gap-2 text-sm font-body text-blue-400">
+                      <CheckCircle size={16} className="text-blue-400" />
+                      Free Event
+                    </div>
+                  )}
                 </div>
 
                 {/* Actions */}
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleViewRegistrations(event)}
+                    className="px-3 py-2 bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/30 rounded-lg text-sm font-body hover:bg-neon-cyan/20 transition-all flex items-center justify-center gap-1"
+                    title="View Registrations"
+                  >
+                    <Users size={14} />
+                    View
+                  </button>
                   <button
                     type="button"
                     onClick={() => onEdit(event)}
@@ -857,6 +930,284 @@ const EventsContent = ({ events, onCreate, onEdit, onDelete }) => {
               <div className="text-sm font-body text-gray-400">Cancelled</div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Registrations Modal */}
+      {showRegistrationsModal && selectedEvent && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="glass-effect rounded-3xl border border-gray-800 max-w-6xl w-full my-8">
+            {/* Header */}
+            <div className="sticky top-0 bg-black/50 backdrop-blur-md border-b border-gray-800 p-6 flex items-center justify-between">
+              <div>
+                <h2 className="text-3xl font-heading font-bold gradient-text">
+                  Event Registrations
+                </h2>
+                <p className="text-gray-400 font-body mt-1">{selectedEvent.title}</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => handleExportRegistrations(selectedEvent._id)}
+                  className="flex items-center gap-2 px-4 py-2 bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/30 font-body rounded-xl hover:bg-neon-cyan/20 transition-all"
+                >
+                  <Download size={18} />
+                  Export CSV
+                </button>
+                <button
+                  onClick={() => setShowRegistrationsModal(false)}
+                  className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+                >
+                  <X size={24} className="text-gray-400" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              {loadingRegistrations ? (
+                <div className="text-center py-12">
+                  <div className="w-12 h-12 border-4 border-neon-blue border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <div className="text-xl font-body text-gray-400">Loading registrations...</div>
+                </div>
+              ) : registrations.length > 0 ? (
+                <>
+                  <div className="mb-4 p-4 bg-neon-blue/10 border border-neon-blue/30 rounded-xl">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-400 font-body">Total Registrations</p>
+                        <p className="text-2xl font-heading font-bold text-neon-cyan">{registrations.length}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-400 font-body">Paid</p>
+                        <p className="text-2xl font-heading font-bold text-green-400">
+                          {registrations.filter(r => r.paymentStatus === 'completed').length}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-400 font-body">Free</p>
+                        <p className="text-2xl font-heading font-bold text-blue-400">
+                          {registrations.filter(r => r.paymentStatus === 'free').length}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-400 font-body">Revenue</p>
+                        <p className="text-2xl font-heading font-bold text-green-400">
+                          ₹{registrations.filter(r => r.payment).reduce((sum, r) => sum + (r.payment?.amount || 0), 0)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-gray-700">
+                          <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Name</th>
+                          <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Reg. No</th>
+                          <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Phone</th>
+                          <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Course</th>
+                          <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Section</th>
+                          <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Payment</th>
+                          <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Amount</th>
+                          <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Order ID</th>
+                          <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Registered</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {registrations.map((reg) => (
+                          <tr key={reg._id} className="border-b border-gray-800 hover:bg-white/5">
+                            <td className="py-3 px-4 font-body text-white">{reg.name}</td>
+                            <td className="py-3 px-4 font-body text-gray-300">{reg.registrationNo}</td>
+                            <td className="py-3 px-4 font-body text-gray-300">{reg.phoneNumber}</td>
+                            <td className="py-3 px-4 font-body text-gray-300">{reg.course || 'N/A'}</td>
+                            <td className="py-3 px-4 font-body text-gray-300">{reg.section}</td>
+                            <td className="py-3 px-4">
+                              <span className={`px-3 py-1 rounded-full text-xs font-body ${
+                                reg.paymentStatus === 'completed' ? 'bg-green-500/20 text-green-400' :
+                                reg.paymentStatus === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                                'bg-blue-500/20 text-blue-400'
+                              }`}>
+                                {reg.paymentStatus || 'free'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 font-body text-white">
+                              {reg.payment ? `₹${reg.payment.amount}` : '-'}
+                            </td>
+                            <td className="py-3 px-4 font-mono text-xs text-gray-400">
+                              {reg.payment?.orderId ? (
+                                <span title={reg.payment.orderId}>
+                                  {reg.payment.orderId.substring(0, 12)}...
+                                </span>
+                              ) : '-'}
+                            </td>
+                            <td className="py-3 px-4 font-body text-gray-300 text-sm">
+                              {reg.registeredAt ? new Date(reg.registeredAt).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              }) : 'N/A'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-12">
+                  <Users size={48} className="mx-auto text-gray-600 mb-4" />
+                  <p className="text-gray-400 font-body">No registrations yet</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const PaymentHistoryContent = ({ payments }) => {
+  const [filter, setFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredPayments = payments.filter(payment => {
+    const matchesFilter = filter === 'all' || payment.status === filter;
+    const matchesSearch = !searchQuery || 
+      payment.userName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      payment.orderId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      payment.registrationNo?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      payment.event?.title?.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
+
+  const statusCounts = {
+    all: payments.length,
+    success: payments.filter(p => p.status === 'success').length,
+    pending: payments.filter(p => p.status === 'pending').length,
+    failed: payments.filter(p => p.status === 'failed').length,
+  };
+
+  const totalRevenue = payments
+    .filter(p => p.status === 'success')
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+  return (
+    <div>
+      {/* Header with Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="glass-effect rounded-xl p-4 border border-gray-800">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-gray-400 font-body">Total Payments</span>
+            <IndianRupee size={20} className="text-neon-blue" />
+          </div>
+          <div className="text-2xl font-heading font-bold text-white">{payments.length}</div>
+        </div>
+        <div className="glass-effect rounded-xl p-4 border border-gray-800">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-gray-400 font-body">Total Revenue</span>
+            <IndianRupee size={20} className="text-green-400" />
+          </div>
+          <div className="text-2xl font-heading font-bold text-green-400">₹{totalRevenue}</div>
+        </div>
+        <div className="glass-effect rounded-xl p-4 border border-gray-800">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-gray-400 font-body">Successful</span>
+            <CheckCircle size={20} className="text-green-400" />
+          </div>
+          <div className="text-2xl font-heading font-bold text-white">{statusCounts.success}</div>
+        </div>
+        <div className="glass-effect rounded-xl p-4 border border-gray-800">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-gray-400 font-body">Pending/Failed</span>
+            <XCircle size={20} className="text-red-400" />
+          </div>
+          <div className="text-2xl font-heading font-bold text-white">{statusCounts.pending + statusCounts.failed}</div>
+        </div>
+      </div>
+
+      {/* Status Filters */}
+      <div className="flex flex-wrap gap-3 mb-6">
+        {['all', 'success', 'pending', 'failed'].map((status) => (
+          <button
+            key={status}
+            type="button"
+            onClick={() => setFilter(status)}
+            className={`px-4 py-2 rounded-lg font-body text-sm transition-all ${
+              filter === status
+                ? 'bg-neon-cyan/20 text-neon-cyan border border-neon-cyan'
+                : 'bg-dark-lighter text-gray-400 hover:text-white'
+            }`}
+          >
+            {status.charAt(0).toUpperCase() + status.slice(1)} ({statusCounts[status]})
+          </button>
+        ))}
+      </div>
+
+      {/* Search Bar */}
+      <div className="mb-6">
+        <input
+          type="text"
+          placeholder="Search by name, order ID, registration number, or event..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white font-body placeholder:text-gray-500 focus:outline-none focus:border-neon-cyan focus:bg-gray-900/70 transition-all"
+        />
+      </div>
+
+      {filteredPayments.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-700">
+                <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Order ID</th>
+                <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">User</th>
+                <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Event</th>
+                <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Reg. No</th>
+                <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Phone</th>
+                <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Amount</th>
+                <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Status</th>
+                <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredPayments.map((payment) => (
+                <tr key={payment._id} className="border-b border-gray-800 hover:bg-white/5">
+                  <td className="py-3 px-4 font-mono text-xs text-gray-300">{payment.orderId}</td>
+                  <td className="py-3 px-4 font-body text-white">{payment.userName}</td>
+                  <td className="py-3 px-4 font-body text-gray-300">{payment.event?.title || 'N/A'}</td>
+                  <td className="py-3 px-4 font-body text-gray-300">{payment.registrationNo || 'N/A'}</td>
+                  <td className="py-3 px-4 font-body text-gray-300">{payment.phoneNumber || 'N/A'}</td>
+                  <td className="py-3 px-4 font-body text-white">₹{payment.amount}</td>
+                  <td className="py-3 px-4">
+                    <span className={`px-3 py-1 rounded-full text-xs font-body ${
+                      payment.status === 'success' ? 'bg-green-500/20 text-green-400' :
+                      payment.status === 'failed' ? 'bg-red-500/20 text-red-400' :
+                      'bg-yellow-500/20 text-yellow-400'
+                    }`}>
+                      {payment.status}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 font-body text-gray-300 text-sm">
+                    {payment.createdAt ? new Date(payment.createdAt).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    }) : 'N/A'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="text-center py-12">
+          <IndianRupee size={48} className="mx-auto text-gray-600 mb-4" />
+          <p className="text-gray-400 font-body">
+            {searchQuery ? 'No payments match your search' : 'No payment history found'}
+          </p>
         </div>
       )}
     </div>
@@ -1429,6 +1780,50 @@ const CreateModal = ({ type, onClose, onSuccess }) => {
                   />
                   <p className="text-xs text-gray-500 mt-1">Tags help categorize and filter events</p>
                 </div>
+
+                {/* Payment Fields */}
+                <div className="border-t border-gray-700 pt-4 mt-4">
+                  <h4 className="text-lg font-heading font-bold text-white mb-4">Payment Settings</h4>
+                  
+                  <div className="mb-4">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        name="isPaid"
+                        checked={formData.isPaid || false}
+                        onChange={(e) => {
+                          const isPaid = e.target.checked;
+                          setFormData(prev => ({ 
+                            ...prev, 
+                            isPaid,
+                            price: isPaid ? prev.price : 0
+                          }));
+                        }}
+                        className="w-5 h-5 accent-neon-blue"
+                      />
+                      <span className="text-white font-body">This is a paid event</span>
+                    </label>
+                  </div>
+
+                  {formData.isPaid && (
+                    <div>
+                      <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
+                        Event Price (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        name="price"
+                        value={formData.price || ''}
+                        onChange={handleChange}
+                        required={formData.isPaid}
+                        min="1"
+                        className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white placeholder:text-gray-500"
+                        placeholder="Enter price in rupees"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Registration fee for this event</p>
+                    </div>
+                  )}
+                </div>
               </>
             )}
 
@@ -1884,6 +2279,50 @@ const EditModal = ({ type, item, onClose, onSuccess }) => {
                     placeholder="e.g., Workshop, Technical, Coding, Web Development"
                   />
                   <p className="text-xs text-gray-500 mt-1">Tags help categorize and filter events</p>
+                </div>
+
+                {/* Payment Fields */}
+                <div className="border-t border-gray-700 pt-4 mt-4">
+                  <h4 className="text-lg font-heading font-bold text-white mb-4">Payment Settings</h4>
+                  
+                  <div className="mb-4">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        name="isPaid"
+                        checked={formData.isPaid || false}
+                        onChange={(e) => {
+                          const isPaid = e.target.checked;
+                          setFormData(prev => ({ 
+                            ...prev, 
+                            isPaid,
+                            price: isPaid ? prev.price : 0
+                          }));
+                        }}
+                        className="w-5 h-5 accent-neon-blue"
+                      />
+                      <span className="text-white font-body">This is a paid event</span>
+                    </label>
+                  </div>
+
+                  {formData.isPaid && (
+                    <div>
+                      <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
+                        Event Price (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        name="price"
+                        value={formData.price || ''}
+                        onChange={handleChange}
+                        required={formData.isPaid}
+                        min="1"
+                        className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white placeholder:text-gray-500"
+                        placeholder="Enter price in rupees"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Registration fee for this event</p>
+                    </div>
+                  )}
                 </div>
               </>
             )}

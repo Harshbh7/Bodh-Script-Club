@@ -91,6 +91,15 @@ export const eventsAPI = {
   delete: (id) => api.delete(`/events/${id}`),
 };
 
+// Payment API
+export const paymentAPI = {
+  createOrder: (data) => api.post('/payment/create-order', data),
+  verifyPayment: (data) => api.post('/payment/verify', data),
+  getHistory: () => api.get('/payment/history'),
+  getAllPayments: () => api.get('/payment/admin/all'),
+  getEventPayments: (eventId) => api.get(`/payment/admin/event/${eventId}`),
+};
+
 // Members API
 export const membersAPI = {
   getAll: () => api.get('/members'),

@@ -103,6 +103,94 @@ const handlers = {
     });
   },
 
+  // Auth - Signup
+  'POST /auth/signup': async (req, res) => {
+    await connectDB();
+    
+    try {
+      const { name, email, password } = req.body;
+      
+      // Validation
+      if (!name || !email || !password) {
+        return res.status(400).json({
+          message: 'Name, email, and password are required',
+          error: 'MISSING_FIELDS'
+        });
+      }
+
+      // Password strength validation
+      if (password.length < 6) {
+        return res.status(400).json({
+          message: 'Password must be at least 6 characters long',
+          error: 'WEAK_PASSWORD'
+        });
+      }
+
+      // Check if user already exists
+      const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
+      if (existingUser) {
+        return res.status(400).json({
+          message: 'Email already registered',
+          error: 'EMAIL_EXISTS'
+        });
+      }
+
+      // Create new user
+      const user = new User({
+        name: name.trim(),
+        email: email.toLowerCase().trim(),
+        password: password,
+        role: 'user',
+        isAdmin: false,
+        createdAt: new Date()
+      });
+
+      await user.save();
+
+      // Generate JWT token
+      const payload = {
+        userId: user._id,
+        email: user.email,
+        role: user.role,
+        isAdmin: false
+      };
+
+      const accessToken = jwt.sign(payload, process.env.JWT_SECRET, {
+        expiresIn: '7d',
+        algorithm: 'HS256'
+      });
+
+      res.status(201).json({
+        message: 'Account created successfully',
+        accessToken,
+        tokenType: 'Bearer',
+        expiresIn: '7d',
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          isAdmin: false
+        }
+      });
+    } catch (error) {
+      console.error('Signup error:', error);
+      
+      // Handle duplicate key error
+      if (error.code === 11000) {
+        return res.status(400).json({
+          message: 'Email already registered',
+          error: 'EMAIL_EXISTS'
+        });
+      }
+      
+      res.status(500).json({
+        message: 'Failed to create account',
+        error: error.message
+      });
+    }
+  },
+
   // Auth - Login
   'POST /auth/login': async (req, res) => {
     await connectDB();
@@ -626,6 +714,237 @@ const handlers = {
     }
   },
 
+  // Event Registration - Register for event
+  'POST /events/:id/register': async (req, res) => {
+    await connectDB();
+    
+    try {
+      const decoded = verifyToken(req);
+      const { id } = req.params;
+      const registrationData = req.body;
+
+      // Check if event exists
+      const event = await Event.findById(id);
+      if (!event) {
+        return res.status(404).json({ message: 'Event not found' });
+      }
+
+      // Check if event is paid (should go through payment flow)
+      if (event.isPaid && event.price > 0) {
+        return res.status(400).json({ 
+          message: 'This is a paid event. Please complete payment first.',
+          requiresPayment: true,
+          price: event.price
+        });
+      }
+
+      // Check if already registered
+      const existingRegistration = await EventRegistration.findOne({
+        event: id,
+        user: decoded.userId
+      });
+
+      if (existingRegistration) {
+        return res.status(400).json({ message: 'You are already registered for this event' });
+      }
+
+      // Create registration for free event
+      const registration = new EventRegistration({
+        event: id,
+        user: decoded.userId,
+        name: registrationData.name,
+        registrationNo: registrationData.registrationNo,
+        phoneNumber: registrationData.phoneNumber,
+        whatsappNumber: registrationData.whatsappNumber,
+        section: registrationData.section,
+        department: registrationData.department,
+        year: registrationData.year,
+        course: registrationData.course,
+        paymentStatus: 'free',
+        registeredAt: new Date()
+      });
+
+      await registration.save();
+
+      // Update event registration count
+      await Event.findByIdAndUpdate(id, {
+        $inc: { registrationCount: 1 }
+      });
+
+      res.status(201).json({
+        message: 'Registration successful',
+        registration
+      });
+    } catch (error) {
+      console.error('Error registering for event:', error);
+      res.status(500).json({
+        message: 'Failed to register for event',
+        error: error.message
+      });
+    }
+  },
+
+  // Event Registration - Get registrations for an event (Admin)
+  'GET /events/:id/registrations': async (req, res) => {
+    await connectDB();
+    
+    try {
+      const decoded = verifyToken(req);
+      const { id } = req.params;
+
+      // Check if user is admin
+      if (decoded.role !== 'admin' && !decoded.isAdmin) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+
+      const registrations = await EventRegistration.find({ event: id })
+        .populate('user', 'name email')
+        .populate('payment')
+        .sort({ registeredAt: -1 });
+
+      res.status(200).json({
+        success: true,
+        registrations
+      });
+    } catch (error) {
+      console.error('Error fetching registrations:', error);
+      res.status(500).json({
+        message: 'Failed to fetch registrations',
+        error: error.message
+      });
+    }
+  },
+
+  // Event Registration - Export registrations to CSV (Admin)
+  'GET /events/:id/registrations/export': async (req, res) => {
+    await connectDB();
+    
+    try {
+      const decoded = verifyToken(req);
+      const { id } = req.params;
+
+      // Check if user is admin
+      if (decoded.role !== 'admin' && !decoded.isAdmin) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+
+      const event = await Event.findById(id);
+      if (!event) {
+        return res.status(404).json({ message: 'Event not found' });
+      }
+
+      const registrations = await EventRegistration.find({ event: id })
+        .populate('user', 'name email')
+        .populate('payment')
+        .sort({ registeredAt: -1 });
+
+      console.log(`Exporting ${registrations.length} registrations for event: ${event.title}`);
+
+      // Create CSV header
+      const csvHeader = 'Registration No,Name,Phone Number,Course,Section,Year,Department,Payment Status,Registered At\n';
+
+      // Create CSV rows
+      const csvRows = registrations.map(reg => {
+        const escapeCSV = (value) => {
+          if (!value) return '""';
+          const stringValue = String(value);
+          const escaped = stringValue.replace(/"/g, '""');
+          if (escaped.includes(',') || escaped.includes('\n') || escaped.includes('"')) {
+            return `"${escaped}"`;
+          }
+          return `"${escaped}"`;
+        };
+
+        return [
+          escapeCSV(reg.registrationNo || ''),
+          escapeCSV(reg.name || ''),
+          escapeCSV(reg.phoneNumber || ''),
+          escapeCSV(reg.course || ''),
+          escapeCSV(reg.section || ''),
+          escapeCSV(reg.year || ''),
+          escapeCSV(reg.department || ''),
+          escapeCSV(reg.paymentStatus || 'free'),
+          escapeCSV(reg.registeredAt ? new Date(reg.registeredAt).toLocaleString('en-US', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+          }) : '')
+        ].join(',');
+      }).join('\n');
+
+      // Add UTF-8 BOM for Excel compatibility
+      const BOM = '\uFEFF';
+      const csvData = BOM + csvHeader + csvRows;
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${event.title.replace(/[^a-z0-9]/gi, '-')}-registrations-${new Date().toISOString().split('T')[0]}.csv"`);
+      res.status(200).send(csvData);
+
+      console.log('CSV export successful');
+    } catch (error) {
+      console.error('Error exporting registrations:', error);
+      res.status(500).json({
+        message: 'Failed to export registrations',
+        error: error.message
+      });
+    }
+  },
+
+  // Event Registration - Check if user is registered
+  'GET /events/:id/check-registration': async (req, res) => {
+    await connectDB();
+    
+    try {
+      const decoded = verifyToken(req);
+      const { id } = req.params;
+
+      const registration = await EventRegistration.findOne({
+        event: id,
+        user: decoded.userId
+      });
+
+      res.status(200).json({
+        isRegistered: !!registration,
+        registration: registration || null
+      });
+    } catch (error) {
+      console.error('Error checking registration:', error);
+      res.status(500).json({
+        message: 'Failed to check registration',
+        error: error.message
+      });
+    }
+  },
+
+  // Event Registration - Get user's registrations
+  'GET /events/user/registrations': async (req, res) => {
+    await connectDB();
+    
+    try {
+      const decoded = verifyToken(req);
+
+      const registrations = await EventRegistration.find({ user: decoded.userId })
+        .populate('event')
+        .populate('payment')
+        .sort({ registeredAt: -1 });
+
+      res.status(200).json({
+        success: true,
+        registrations
+      });
+    } catch (error) {
+      console.error('Error fetching user registrations:', error);
+      res.status(500).json({
+        message: 'Failed to fetch registrations',
+        error: error.message
+      });
+    }
+  },
+
   // Members - Create
   'POST /members': async (req, res) => {
     await connectDB();
@@ -881,6 +1200,8 @@ const handlers = {
       });
     }
   },
+
+
 };
 
 export default async function handler(req, res) {
