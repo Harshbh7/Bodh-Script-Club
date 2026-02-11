@@ -785,8 +785,15 @@ const handlers = {
         return res.status(400).json({ message: 'Registration number is required' });
       }
 
-      // Check if event exists
-      const event = await Event.findById(id);
+      // Check if event exists - support both slug and ObjectId
+      let event;
+      if (mongoose.Types.ObjectId.isValid(id)) {
+        event = await Event.findById(id);
+      }
+      if (!event) {
+        event = await Event.findOne({ slug: id });
+      }
+      
       if (!event) {
         return res.status(404).json({ message: 'Event not found' });
       }
@@ -802,7 +809,7 @@ const handlers = {
 
       // Check if already registered with this registration number for this event
       const existingRegistration = await EventRegistration.findOne({
-        event: id,
+        event: event._id,
         registrationNo: registrationData.registrationNo
       });
 
@@ -842,7 +849,7 @@ const handlers = {
 
       // Create registration for free event (no user authentication required)
       const registration = new EventRegistration({
-        event: id,
+        event: event._id,
         user: null, // No user required for public registration
         name: registrationData.name,
         registrationNo: registrationData.registrationNo,
@@ -863,7 +870,7 @@ const handlers = {
       await registration.save();
 
       // Update event registration count
-      await Event.findByIdAndUpdate(id, {
+      await Event.findByIdAndUpdate(event._id, {
         $inc: { registrationCount: 1 }
       });
 
