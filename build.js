@@ -1,48 +1,43 @@
 #!/usr/bin/env node
 
 /**
- * Custom build script for Vercel deployment
- * This bypasses the Vite binary permission issues
+ * Simple and reliable build script for Vercel
  */
 
-import { build } from 'vite';
-import { fileURLToPath } from 'url';
-import { dirname, resolve } from 'path';
+import { execSync } from 'child_process';
+import { existsSync, mkdirSync } from 'fs';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-console.log('🔨 Starting Vite build...');
+console.log('🚀 Starting build process...');
+console.log('📦 Node version:', process.version);
+console.log('🌍 Environment:', process.env.NODE_ENV || 'production');
 
 try {
-  await build({
-    root: __dirname,
-    build: {
-      outDir: 'dist',
-      emptyOutDir: true,
-      sourcemap: false,
-      minify: 'terser',
-      terserOptions: {
-        compress: {
-          drop_console: true,
-          drop_debugger: true
-        }
-      },
-      rollupOptions: {
-        output: {
-          manualChunks: {
-            vendor: ['react', 'react-dom', 'react-router-dom'],
-            gsap: ['gsap'],
-            ui: ['lucide-react']
-          }
-        }
-      },
-      chunkSizeWarningLimit: 1000
+  // Ensure dist directory exists
+  if (!existsSync('dist')) {
+    mkdirSync('dist', { recursive: true });
+    console.log('📁 Created dist directory');
+  }
+
+  // Run Vite build
+  console.log('🔨 Running Vite build...');
+  execSync('vite build', { 
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      NODE_ENV: 'production'
     }
   });
-  
-  console.log('✅ Build completed successfully!');
+
+  // Verify build output
+  if (existsSync('dist/index.html')) {
+    console.log('✅ Build completed successfully!');
+    console.log('✅ Verification: dist/index.html exists');
+    process.exit(0);
+  } else {
+    throw new Error('Build verification failed: dist/index.html not found');
+  }
+
 } catch (error) {
-  console.error('❌ Build failed:', error);
+  console.error('❌ Build failed:', error.message);
   process.exit(1);
 }

@@ -4,11 +4,13 @@ import { gsap } from 'gsap';
 import Footer from '../components/Footer';
 import LazyImage from '../components/LazyImage';
 import { membersAPI } from '../utils/api';
+import { useTheme } from '../context/ThemeContext';
 
 const Members = () => {
   const [members, setMembers] = useState([]);
   const [selectedRole, setSelectedRole] = useState('all');
   const [loading, setLoading] = useState(true);
+  const { theme } = useTheme();
 
   useEffect(() => {
     fetchMembers();
@@ -205,29 +207,43 @@ const Members = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className={`min-h-screen flex items-center justify-center ${
+        theme === 'dark' ? 'bg-black' : 'bg-white'
+      }`}>
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-neon-blue border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <div className="text-2xl font-body text-gray-400">Loading team members...</div>
+          <div className={`w-16 h-16 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-4 ${
+            theme === 'dark' ? 'border-neon-blue' : 'border-blue-600'
+          }`}></div>
+          <div className={`text-2xl font-body ${
+            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+          }`}>Loading team members...</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen">
+    <div className={`min-h-screen ${theme === 'dark' ? 'bg-black' : 'bg-white'}`}>
       {/* Hero Section */}
       <section className="pt-32 pb-20 px-4 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-radial from-neon-blue/10 via-transparent to-transparent"></div>
+        <div className={`absolute inset-0 ${
+          theme === 'dark'
+            ? 'bg-gradient-radial from-neon-blue/10 via-transparent to-transparent'
+            : 'bg-gradient-radial from-blue-100/30 via-transparent to-transparent'
+        }`}></div>
         
         <div className="max-w-7xl mx-auto text-center relative z-10">
           <div className="inline-flex items-center gap-3 mb-6">
             
-            <h1 className="text-6xl md:text-8xl font-heading font-bold gradient-text animate-float">
+            <h1 className={`text-6xl md:text-8xl font-heading font-bold animate-float ${
+              theme === 'dark' ? 'gradient-text' : 'text-gray-900'
+            }`}>
               Meet The Team
             </h1>
           </div>
-          <p className="text-xl md:text-2xl font-body text-gray-400 max-w-3xl mx-auto">
+          <p className={`text-xl md:text-2xl font-body max-w-3xl mx-auto ${
+            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+          }`}>
             The passionate individuals driving innovation and excellence
           </p>
         </div>
@@ -243,8 +259,10 @@ const Members = () => {
                 onClick={() => setSelectedRole(filter.id)}
                 className={`px-6 py-3 rounded-xl font-body font-medium transition-all duration-300 ${
                   selectedRole === filter.id
-                    ? 'bg-gradient-to-r from-neon-blue to-neon-purple text-white'
-                    : 'glass-effect text-gray-300 hover:text-white'
+                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
+                    : theme === 'dark'
+                    ? 'glass-effect text-gray-300 hover:text-white'
+                    : 'bg-white border border-gray-200 text-gray-700 hover:text-gray-900 shadow-sm hover:shadow-md'
                 }`}
               >
                 {filter.label}
@@ -262,12 +280,14 @@ const Members = () => {
               {/* Faculty Incharge */}
               {groupedMembers.faculty.length > 0 && (
                 <div>
-                  <h2 className="text-4xl font-heading font-bold gradient-text mb-8 text-center">
+                  <h2 className={`text-4xl font-heading font-bold mb-8 text-center ${
+                    theme === 'dark' ? 'gradient-text' : 'text-gray-900'
+                  }`}>
                     Faculty Incharge
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                     {groupedMembers.faculty.map((member) => (
-                      <MemberCard key={member._id} member={member} getRoleDisplay={getRoleDisplay} />
+                      <MemberCard key={member._id} member={member} getRoleDisplay={getRoleDisplay} theme={theme} />
                     ))}
                   </div>
                 </div>
@@ -276,12 +296,14 @@ const Members = () => {
               {/* Leadership */}
               {groupedMembers.leadership.length > 0 && (
                 <div>
-                  <h2 className="text-4xl font-heading font-bold gradient-text mb-8 text-center">
+                  <h2 className={`text-4xl font-heading font-bold mb-8 text-center ${
+                    theme === 'dark' ? 'gradient-text' : 'text-gray-900'
+                  }`}>
                     Leadership
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                     {groupedMembers.leadership.map((member) => (
-                      <MemberCard key={member._id} member={member} getRoleDisplay={getRoleDisplay} />
+                      <MemberCard key={member._id} member={member} getRoleDisplay={getRoleDisplay} theme={theme} />
                     ))}
                   </div>
                 </div>
@@ -290,12 +312,14 @@ const Members = () => {
               {/* Event Coordinators */}
               {groupedMembers.coordinators.length > 0 && (
                 <div>
-                  <h2 className="text-4xl font-heading font-bold gradient-text mb-8 text-center">
+                  <h2 className={`text-4xl font-heading font-bold mb-8 text-center ${
+                    theme === 'dark' ? 'gradient-text' : 'text-gray-900'
+                  }`}>
                     Event Coordinators
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                     {groupedMembers.coordinators.map((member) => (
-                      <MemberCard key={member._id} member={member} getRoleDisplay={getRoleDisplay} />
+                      <MemberCard key={member._id} member={member} getRoleDisplay={getRoleDisplay} theme={theme} />
                     ))}
                   </div>
                 </div>
@@ -304,12 +328,14 @@ const Members = () => {
               {/* Technical Team */}
               {groupedMembers.technical.length > 0 && (
                 <div>
-                  <h2 className="text-4xl font-heading font-bold gradient-text mb-8 text-center">
+                  <h2 className={`text-4xl font-heading font-bold mb-8 text-center ${
+                    theme === 'dark' ? 'gradient-text' : 'text-gray-900'
+                  }`}>
                     Technical Team
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                     {groupedMembers.technical.map((member) => (
-                      <MemberCard key={member._id} member={member} getRoleDisplay={getRoleDisplay} />
+                      <MemberCard key={member._id} member={member} getRoleDisplay={getRoleDisplay} theme={theme} />
                     ))}
                   </div>
                 </div>
@@ -318,12 +344,14 @@ const Members = () => {
               {/* Creative Team */}
               {groupedMembers.creative.length > 0 && (
                 <div>
-                  <h2 className="text-4xl font-heading font-bold gradient-text mb-8 text-center">
+                  <h2 className={`text-4xl font-heading font-bold mb-8 text-center ${
+                    theme === 'dark' ? 'gradient-text' : 'text-gray-900'
+                  }`}>
                     Creative Team
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                     {groupedMembers.creative.map((member) => (
-                      <MemberCard key={member._id} member={member} getRoleDisplay={getRoleDisplay} />
+                      <MemberCard key={member._id} member={member} getRoleDisplay={getRoleDisplay} theme={theme} />
                     ))}
                   </div>
                 </div>
@@ -332,14 +360,16 @@ const Members = () => {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {filteredMembers.map((member) => (
-                <MemberCard key={member._id} member={member} getRoleDisplay={getRoleDisplay} />
+                <MemberCard key={member._id} member={member} getRoleDisplay={getRoleDisplay} theme={theme} />
               ))}
             </div>
           )}
 
           {filteredMembers.length === 0 && (
             <div className="text-center py-20">
-              <p className="text-xl font-body text-gray-400">No members found with this role.</p>
+              <p className={`text-xl font-body ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+              }`}>No members found with this role.</p>
             </div>
           )}
         </div>
@@ -350,9 +380,11 @@ const Members = () => {
   );
 };
 
-const MemberCard = ({ member, getRoleDisplay }) => {
+const MemberCard = ({ member, getRoleDisplay, theme }) => {
   return (
-    <div className="member-card group relative overflow-hidden rounded-2xl aspect-[3/4] cursor-pointer">
+    <div className={`member-card group relative overflow-hidden rounded-2xl aspect-[3/4] cursor-pointer border ${
+      theme === 'dark' ? 'border-gray-800' : 'border-gray-200 shadow-md hover:shadow-lg'
+    }`}>
       {/* Member Image */}
       <LazyImage
         src={member.image || 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?w=400'}
@@ -367,7 +399,9 @@ const MemberCard = ({ member, getRoleDisplay }) => {
           <h3 className="text-2xl font-heading font-bold text-white mb-2">
             {member.name}
           </h3>
-          <p className="text-neon-cyan font-body text-sm mb-4">
+          <p className={`font-body text-sm mb-4 ${
+            theme === 'dark' ? 'text-neon-cyan' : 'text-cyan-300'
+          }`}>
             {getRoleDisplay(member.role)}
           </p>
 
@@ -378,7 +412,11 @@ const MemberCard = ({ member, getRoleDisplay }) => {
                 href={member.github}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-10 h-10 rounded-full glass-effect flex items-center justify-center hover:bg-neon-blue/20 transition-all duration-300"
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
+                  theme === 'dark'
+                    ? 'glass-effect hover:bg-neon-blue/20'
+                    : 'bg-white/20 hover:bg-white/40'
+                }`}
                 onClick={(e) => e.stopPropagation()}
               >
                 <Github size={18} className="text-white" />
@@ -389,7 +427,11 @@ const MemberCard = ({ member, getRoleDisplay }) => {
                 href={member.linkedin}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-10 h-10 rounded-full glass-effect flex items-center justify-center hover:bg-neon-blue/20 transition-all duration-300"
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
+                  theme === 'dark'
+                    ? 'glass-effect hover:bg-neon-blue/20'
+                    : 'bg-white/20 hover:bg-white/40'
+                }`}
                 onClick={(e) => e.stopPropagation()}
               >
                 <Linkedin size={18} className="text-white" />
@@ -400,7 +442,11 @@ const MemberCard = ({ member, getRoleDisplay }) => {
                 href={member.twitter}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-10 h-10 rounded-full glass-effect flex items-center justify-center hover:bg-neon-blue/20 transition-all duration-300"
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
+                  theme === 'dark'
+                    ? 'glass-effect hover:bg-neon-blue/20'
+                    : 'bg-white/20 hover:bg-white/40'
+                }`}
                 onClick={(e) => e.stopPropagation()}
               >
                 <Twitter size={18} className="text-white" />
@@ -412,7 +458,11 @@ const MemberCard = ({ member, getRoleDisplay }) => {
 
       {/* Role Badge */}
       <div className="absolute top-4 right-4">
-        <span className="px-3 py-1 glass-effect rounded-full text-xs font-mono text-neon-purple">
+        <span className={`px-3 py-1 rounded-full text-xs font-mono ${
+          theme === 'dark'
+            ? 'glass-effect text-neon-purple'
+            : 'bg-white/90 text-purple-700 border border-purple-200'
+        }`}>
           {getRoleDisplay(member.role)}
         </span>
       </div>

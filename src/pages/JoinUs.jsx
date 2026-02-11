@@ -3,6 +3,7 @@ import { UserPlus, CheckCircle, AlertCircle } from 'lucide-react';
 import { gsap } from 'gsap';
 import Footer from '../components/Footer';
 import { submissionsAPI } from '../utils/api';
+import { useTheme } from '../context/ThemeContext';
 
 const JoinUs = () => {
   const [formData, setFormData] = useState({
@@ -20,6 +21,7 @@ const JoinUs = () => {
   const [sameAsPhone, setSameAsPhone] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const { theme } = useTheme();
 
   useEffect(() => {
     gsap.fromTo('.form-container',
@@ -126,18 +128,26 @@ const JoinUs = () => {
   const batchYears = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
   return (
-    <div className="min-h-screen">
+    <div className={`min-h-screen ${theme === 'dark' ? 'bg-black' : 'bg-white'}`}>
       {/* Hero Section */}
       <section className="pt-32 pb-12 px-4 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-radial from-neon-purple/10 via-transparent to-transparent"></div>
+        <div className={`absolute inset-0 ${
+          theme === 'dark'
+            ? 'bg-gradient-radial from-neon-purple/10 via-transparent to-transparent'
+            : 'bg-gradient-radial from-purple-100/30 via-transparent to-transparent'
+        }`}></div>
         
         <div className="max-w-4xl mx-auto text-center relative z-10">
           <div className="inline-flex items-center gap-3 mb-6">            
-            <h1 className="text-6xl md:text-8xl font-heading font-bold gradient-text animate-float">
+            <h1 className={`text-6xl md:text-8xl font-heading font-bold animate-float ${
+              theme === 'dark' ? 'gradient-text' : 'text-gray-900'
+            }`}>
               Join The Team
             </h1>
           </div>
-          <p className="text-xl md:text-2xl font-body text-gray-400 max-w-2xl mx-auto">
+          <p className={`text-xl md:text-2xl font-body max-w-2xl mx-auto ${
+            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+          }`}>
             Become a part of Bodh Script Club and shape the future of technology
           </p>
         </div>
@@ -146,20 +156,30 @@ const JoinUs = () => {
       {/* Form Section */}
       <section className="py-12 px-4">
         <div className="max-w-3xl mx-auto form-container">
-          <div className="glass-effect rounded-3xl p-8 md:p-12">
+          <div className={`rounded-3xl p-8 md:p-12 border ${
+            theme === 'dark'
+              ? 'glass-effect border-gray-800'
+              : 'bg-white border-gray-200 shadow-lg'
+          }`}>
             {message.text && (
-              <div className={`mb-6 p-4 rounded-xl flex items-center gap-3 ${
+              <div className={`mb-6 p-4 rounded-xl flex items-center gap-3 border ${
                 message.type === 'success' 
-                  ? 'bg-green-500/10 border border-green-500/30' 
-                  : 'bg-red-500/10 border border-red-500/30'
+                  ? theme === 'dark'
+                    ? 'bg-green-500/10 border-green-500/30'
+                    : 'bg-green-50 border-green-300'
+                  : theme === 'dark'
+                  ? 'bg-red-500/10 border-red-500/30'
+                  : 'bg-red-50 border-red-300'
               }`}>
                 {message.type === 'success' ? (
-                  <CheckCircle className="text-green-500" size={24} />
+                  <CheckCircle className={theme === 'dark' ? 'text-green-500' : 'text-green-600'} size={24} />
                 ) : (
-                  <AlertCircle className="text-red-500" size={24} />
+                  <AlertCircle className={theme === 'dark' ? 'text-red-500' : 'text-red-600'} size={24} />
                 )}
                 <p className={`font-body ${
-                  message.type === 'success' ? 'text-green-400' : 'text-red-400'
+                  message.type === 'success' 
+                    ? theme === 'dark' ? 'text-green-400' : 'text-green-700'
+                    : theme === 'dark' ? 'text-red-400' : 'text-red-700'
                 }`}>
                   {message.text}
                 </p>
@@ -169,7 +189,9 @@ const JoinUs = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Name */}
               <div>
-                <label className="block text-sm font-body font-medium text-gray-300 mb-2">
+                <label className={`block text-sm font-body font-medium mb-2 ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                }`}>
                   Full Name <span className="text-red-400">*</span>
                 </label>
                 <input
@@ -178,14 +200,20 @@ const JoinUs = () => {
                   value={formData.name}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white font-body placeholder:text-gray-500 focus:outline-none focus:border-neon-cyan focus:bg-gray-900/70 transition-all duration-300"
+                  className={`w-full px-4 py-3 border rounded-xl font-body transition-all duration-300 ${
+                    theme === 'dark'
+                      ? 'bg-gray-900/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-neon-cyan focus:bg-gray-900/70'
+                      : 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+                  } focus:outline-none`}
                   placeholder="Enter your full name"
                 />
               </div>
 
               {/* Email */}
               <div>
-                <label className="block text-sm font-body font-medium text-gray-300 mb-2">
+                <label className={`block text-sm font-body font-medium mb-2 ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                }`}>
                   Email Address <span className="text-red-400">*</span>
                 </label>
                 <input
@@ -194,14 +222,20 @@ const JoinUs = () => {
                   value={formData.email}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white font-body placeholder:text-gray-500 focus:outline-none focus:border-neon-cyan focus:bg-gray-900/70 transition-all duration-300"
+                  className={`w-full px-4 py-3 border rounded-xl font-body transition-all duration-300 ${
+                    theme === 'dark'
+                      ? 'bg-gray-900/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-neon-cyan focus:bg-gray-900/70'
+                      : 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+                  } focus:outline-none`}
                   placeholder="your.email@example.com"
                 />
               </div>
 
               {/* Registration Number */}
               <div>
-                <label className="block text-sm font-body font-medium text-gray-300 mb-2">
+                <label className={`block text-sm font-body font-medium mb-2 ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                }`}>
                   Registration Number <span className="text-red-400">*</span>
                 </label>
                 <input
@@ -210,10 +244,16 @@ const JoinUs = () => {
                   value={formData.registrationNumber}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white font-body placeholder:text-gray-500 focus:outline-none focus:border-neon-cyan focus:bg-gray-900/70 transition-all duration-300"
+                  className={`w-full px-4 py-3 border rounded-xl font-body transition-all duration-300 ${
+                    theme === 'dark'
+                      ? 'bg-gray-900/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-neon-cyan focus:bg-gray-900/70'
+                      : 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+                  } focus:outline-none`}
                   placeholder="Enter your registration number"
                 />
-                <p className="text-xs text-gray-500 mt-1 font-body">
+                <p className={`text-xs mt-1 font-body ${
+                  theme === 'dark' ? 'text-gray-500' : 'text-gray-500'
+                }`}>
                   Each registration number can only be used once
                 </p>
               </div>
@@ -221,7 +261,9 @@ const JoinUs = () => {
               {/* Phone and WhatsApp */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-body font-medium text-gray-300 mb-2">
+                  <label className={`block text-sm font-body font-medium mb-2 ${
+                    theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
                     Phone Number <span className="text-red-400">*</span>
                   </label>
                   <input
@@ -230,13 +272,19 @@ const JoinUs = () => {
                     value={formData.phone}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white font-body placeholder:text-gray-500 focus:outline-none focus:border-neon-cyan focus:bg-gray-900/70 transition-all duration-300"
+                    className={`w-full px-4 py-3 border rounded-xl font-body transition-all duration-300 ${
+                      theme === 'dark'
+                        ? 'bg-gray-900/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-neon-cyan focus:bg-gray-900/70'
+                        : 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+                    } focus:outline-none`}
                     placeholder="10-digit phone number"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-body font-medium text-gray-300 mb-2">
+                  <label className={`block text-sm font-body font-medium mb-2 ${
+                    theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
                     WhatsApp Number <span className="text-red-400">*</span>
                   </label>
                   <input
@@ -246,22 +294,36 @@ const JoinUs = () => {
                     onChange={handleChange}
                     required
                     disabled={sameAsPhone}
-                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white font-body placeholder:text-gray-500 focus:outline-none focus:border-neon-cyan focus:bg-gray-900/70 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`w-full px-4 py-3 border rounded-xl font-body transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      theme === 'dark'
+                        ? 'bg-gray-900/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-neon-cyan focus:bg-gray-900/70'
+                        : 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+                    } focus:outline-none`}
                     placeholder="WhatsApp number"
                   />
                 </div>
               </div>
 
               {/* Same as Phone Checkbox */}
-              <div className="flex items-center gap-3 p-4 bg-gray-900/30 rounded-xl border border-gray-800">
+              <div className={`flex items-center gap-3 p-4 rounded-xl border ${
+                theme === 'dark'
+                  ? 'bg-gray-900/30 border-gray-800'
+                  : 'bg-gray-50 border-gray-200'
+              }`}>
                 <input
                   type="checkbox"
                   id="sameAsPhone"
                   checked={sameAsPhone}
                   onChange={(e) => setSameAsPhone(e.target.checked)}
-                  className="w-5 h-5 rounded border-gray-600 bg-gray-900 text-neon-cyan focus:ring-neon-cyan focus:ring-offset-0 cursor-pointer"
+                  className={`w-5 h-5 rounded cursor-pointer ${
+                    theme === 'dark'
+                      ? 'border-gray-600 bg-gray-900 text-neon-cyan focus:ring-neon-cyan'
+                      : 'border-gray-300 bg-white text-blue-600 focus:ring-blue-500'
+                  } focus:ring-offset-0`}
                 />
-                <label htmlFor="sameAsPhone" className="text-sm font-body text-gray-300 cursor-pointer select-none">
+                <label htmlFor="sameAsPhone" className={`text-sm font-body cursor-pointer select-none ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                }`}>
                   WhatsApp number is same as phone number
                 </label>
               </div>
@@ -269,7 +331,9 @@ const JoinUs = () => {
               {/* Course, Section, Year */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                  <label className="block text-sm font-body font-medium text-gray-300 mb-2">
+                  <label className={`block text-sm font-body font-medium mb-2 ${
+                    theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
                     Course <span className="text-red-400">*</span>
                   </label>
                   <input
@@ -278,13 +342,19 @@ const JoinUs = () => {
                     value={formData.course}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white font-body placeholder:text-gray-500 focus:outline-none focus:border-neon-cyan focus:bg-gray-900/70 transition-all duration-300"
+                    className={`w-full px-4 py-3 border rounded-xl font-body transition-all duration-300 ${
+                      theme === 'dark'
+                        ? 'bg-gray-900/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-neon-cyan focus:bg-gray-900/70'
+                        : 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+                    } focus:outline-none`}
                     placeholder="e.g., B.Tech CSE"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-body font-medium text-gray-300 mb-2">
+                  <label className={`block text-sm font-body font-medium mb-2 ${
+                    theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
                     Section <span className="text-red-400">*</span>
                   </label>
                   <input
@@ -293,13 +363,19 @@ const JoinUs = () => {
                     value={formData.section}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white font-body placeholder:text-gray-500 focus:outline-none focus:border-neon-cyan focus:bg-gray-900/70 transition-all duration-300"
+                    className={`w-full px-4 py-3 border rounded-xl font-body transition-all duration-300 ${
+                      theme === 'dark'
+                        ? 'bg-gray-900/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-neon-cyan focus:bg-gray-900/70'
+                        : 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+                    } focus:outline-none`}
                     placeholder="e.g., A"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-body font-medium text-gray-300 mb-2">
+                  <label className={`block text-sm font-body font-medium mb-2 ${
+                    theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
                     Year <span className="text-red-400">*</span>
                   </label>
                   <select
@@ -307,20 +383,26 @@ const JoinUs = () => {
                     value={formData.year}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white font-body focus:outline-none focus:border-neon-cyan focus:bg-gray-900/70 transition-all duration-300 cursor-pointer"
+                    className={`w-full px-4 py-3 border rounded-xl font-body transition-all duration-300 cursor-pointer ${
+                      theme === 'dark'
+                        ? 'bg-gray-900/50 border-gray-700 text-white focus:border-neon-cyan focus:bg-gray-900/70'
+                        : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+                    } focus:outline-none`}
                   >
-                    <option value="" className="bg-gray-900 text-gray-400">Select</option>
-                    <option value="1st" className="bg-gray-900 text-white">1st Year</option>
-                    <option value="2nd" className="bg-gray-900 text-white">2nd Year</option>
-                    <option value="3rd" className="bg-gray-900 text-white">3rd Year</option>
-                    <option value="4th" className="bg-gray-900 text-white">4th Year</option>
+                    <option value="" className={theme === 'dark' ? 'bg-gray-900 text-gray-400' : 'bg-white text-gray-400'}>Select</option>
+                    <option value="1st" className={theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}>1st Year</option>
+                    <option value="2nd" className={theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}>2nd Year</option>
+                    <option value="3rd" className={theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}>3rd Year</option>
+                    <option value="4th" className={theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}>4th Year</option>
                   </select>
                 </div>
               </div>
 
               {/* Batch */}
               <div>
-                <label className="block text-sm font-body font-medium text-gray-300 mb-2">
+                <label className={`block text-sm font-body font-medium mb-2 ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                }`}>
                   Batch Year <span className="text-red-400">*</span>
                 </label>
                 <select
@@ -328,18 +410,24 @@ const JoinUs = () => {
                   value={formData.batch}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white font-body focus:outline-none focus:border-neon-cyan focus:bg-gray-900/70 transition-all duration-300 cursor-pointer"
+                  className={`w-full px-4 py-3 border rounded-xl font-body transition-all duration-300 cursor-pointer ${
+                    theme === 'dark'
+                      ? 'bg-gray-900/50 border-gray-700 text-white focus:border-neon-cyan focus:bg-gray-900/70'
+                      : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+                  } focus:outline-none`}
                 >
-                  <option value="" className="bg-gray-900 text-gray-400">Select batch year</option>
+                  <option value="" className={theme === 'dark' ? 'bg-gray-900 text-gray-400' : 'bg-white text-gray-400'}>Select batch year</option>
                   {batchYears.map(year => (
-                    <option key={year} value={year} className="bg-gray-900 text-white">{year}</option>
+                    <option key={year} value={year} className={theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}>{year}</option>
                   ))}
                 </select>
               </div>
 
               {/* GitHub Link */}
               <div>
-                <label className="block text-sm font-body font-medium text-gray-300 mb-2">
+                <label className={`block text-sm font-body font-medium mb-2 ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                }`}>
                   GitHub Profile (Optional)
                 </label>
                 <input
@@ -347,7 +435,11 @@ const JoinUs = () => {
                   name="github"
                   value={formData.github}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white font-body placeholder:text-gray-500 focus:outline-none focus:border-neon-cyan focus:bg-gray-900/70 transition-all duration-300"
+                  className={`w-full px-4 py-3 border rounded-xl font-body transition-all duration-300 ${
+                    theme === 'dark'
+                      ? 'bg-gray-900/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-neon-cyan focus:bg-gray-900/70'
+                      : 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+                  } focus:outline-none`}
                   placeholder="https://github.com/username"
                 />
               </div>
@@ -356,7 +448,7 @@ const JoinUs = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink text-white font-heading font-bold text-lg rounded-xl hover:shadow-neon hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
+                className="w-full py-4 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white font-heading font-bold text-lg rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>

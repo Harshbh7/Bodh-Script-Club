@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
+import { useTheme } from '../context/ThemeContext';
 
 const LoadingScreen = ({ isLoading, onComplete }) => {
   const loadingRef = useRef(null);
   const logoRef = useRef(null);
   const progressRef = useRef(null);
   const textRef = useRef(null);
+  const { theme } = useTheme();
 
   useEffect(() => {
     if (!isLoading) {
@@ -99,7 +101,9 @@ const LoadingScreen = ({ isLoading, onComplete }) => {
   return (
     <div
       ref={loadingRef}
-      className="loading-screen fixed inset-0 bg-black z-[10000] flex items-center justify-center"
+      className={`loading-screen fixed inset-0 z-[10000] flex items-center justify-center ${
+        theme === 'dark' ? 'bg-black' : 'bg-white'
+      }`}
     >
       <div className="text-center">
         {/* Logo */}
@@ -114,34 +118,52 @@ const LoadingScreen = ({ isLoading, onComplete }) => {
               className="w-full h-full object-contain"
             />
           </div>
-          <h1 className="text-3xl font-heading font-bold gradient-text">
+          <h1 className={`text-3xl font-heading font-bold ${
+            theme === 'dark' ? 'gradient-text' : 'text-gray-900'
+          }`}>
             Bodh Script Club
           </h1>
         </div>
 
         {/* Loading text */}
         <div ref={textRef} className="mb-8">
-          <p className="text-xl font-body text-gray-400 mb-2">
+          <p className={`text-xl font-body mb-2 ${
+            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+          }`}>
             Loading...
           </p>
           <div className="flex items-center justify-center space-x-1">
-            <div className="w-2 h-2 bg-neon-blue rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-            <div className="w-2 h-2 bg-neon-purple rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-            <div className="w-2 h-2 bg-neon-pink rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            <div className={`w-2 h-2 rounded-full animate-bounce ${
+              theme === 'dark' ? 'bg-neon-blue' : 'bg-blue-600'
+            }`} style={{ animationDelay: '0ms' }}></div>
+            <div className={`w-2 h-2 rounded-full animate-bounce ${
+              theme === 'dark' ? 'bg-neon-purple' : 'bg-purple-600'
+            }`} style={{ animationDelay: '150ms' }}></div>
+            <div className={`w-2 h-2 rounded-full animate-bounce ${
+              theme === 'dark' ? 'bg-neon-pink' : 'bg-pink-600'
+            }`} style={{ animationDelay: '300ms' }}></div>
           </div>
         </div>
 
         {/* Progress bar */}
-        <div className="w-64 h-1 bg-gray-800 rounded-full mx-auto overflow-hidden">
+        <div className={`w-64 h-1 rounded-full mx-auto overflow-hidden ${
+          theme === 'dark' ? 'bg-gray-800' : 'bg-gray-200'
+        }`}>
           <div
             ref={progressRef}
-            className="h-full bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink rounded-full"
+            className={`h-full rounded-full ${
+              theme === 'dark'
+                ? 'bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink'
+                : 'bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600'
+            }`}
             style={{ width: '0%' }}
           ></div>
         </div>
 
         {/* Loading percentage */}
-        <p className="text-sm font-mono text-gray-500 mt-4">
+        <p className={`text-sm font-mono mt-4 ${
+          theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
+        }`}>
           Initializing Components...
         </p>
       </div>
@@ -151,7 +173,9 @@ const LoadingScreen = ({ isLoading, onComplete }) => {
         {[...Array(20)].map((_, i) => (
           <div
             key={i}
-            className="absolute w-1 h-1 bg-neon-cyan rounded-full opacity-30"
+            className={`absolute w-1 h-1 rounded-full opacity-30 ${
+              theme === 'dark' ? 'bg-neon-cyan' : 'bg-blue-400'
+            }`}
             style={{
               left: `${Math.random() * 100}%`,
               top: `${Math.random() * 100}%`,

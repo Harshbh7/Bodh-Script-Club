@@ -2,10 +2,12 @@ import { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 import { Star, Quote } from 'lucide-react';
 import LazyImage from './LazyImage';
+import { useTheme } from '../context/ThemeContext';
 
 const TestimonialCarousel = ({ testimonials }) => {
   const carouselRef = useRef(null);
   const animationRef = useRef(null);
+  const { theme } = useTheme();
 
   useEffect(() => {
     const carousel = carouselRef.current;
@@ -43,16 +45,25 @@ const TestimonialCarousel = ({ testimonials }) => {
   // Generate avatar with initials
   const getAvatar = (name) => {
     const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-    const colors = [
-      'from-neon-blue to-neon-cyan',
-      'from-neon-purple to-neon-pink',
-      'from-neon-pink to-neon-purple',
-      'from-neon-cyan to-neon-blue',
-    ];
+    const colors = theme === 'dark' 
+      ? [
+          'from-neon-blue to-neon-cyan',
+          'from-neon-purple to-neon-pink',
+          'from-neon-pink to-neon-purple',
+          'from-neon-cyan to-neon-blue',
+        ]
+      : [
+          'from-blue-500 to-cyan-500',
+          'from-purple-500 to-pink-500',
+          'from-pink-500 to-purple-500',
+          'from-cyan-500 to-blue-500',
+        ];
     const colorIndex = name.length % colors.length;
     
     return (
-      <div className={`w-20 h-20 rounded-full bg-gradient-to-br ${colors[colorIndex]} flex items-center justify-center text-2xl font-heading font-bold text-white border-4 border-neon-blue/30`}>
+      <div className={`w-20 h-20 rounded-full bg-gradient-to-br ${colors[colorIndex]} flex items-center justify-center text-2xl font-heading font-bold text-white border-4 ${
+        theme === 'dark' ? 'border-neon-blue/30' : 'border-blue-300'
+      }`}>
         {initials}
       </div>
     );
@@ -63,7 +74,7 @@ const TestimonialCarousel = ({ testimonials }) => {
       <Star
         key={i}
         size={16}
-        className={i < rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-600'}
+        className={i < rating ? 'fill-yellow-400 text-yellow-400' : theme === 'dark' ? 'text-gray-600' : 'text-gray-300'}
       />
     ));
   };
@@ -81,9 +92,15 @@ const TestimonialCarousel = ({ testimonials }) => {
             key={`${testimonial._id || testimonial.name}-${index}`}
             className="flex-shrink-0 w-[450px]"
           >
-            <div className="glass-effect rounded-2xl p-8 h-full border border-gray-800 hover:border-neon-blue/50 transition-all duration-300 relative">
+            <div className={`rounded-2xl p-8 h-full border transition-all duration-300 relative ${
+              theme === 'dark'
+                ? 'glass-effect border-gray-800 hover:border-neon-blue/50'
+                : 'bg-white border-gray-200 shadow-md hover:shadow-lg hover:border-blue-300'
+            }`}>
               {/* Quote Icon */}
-              <Quote className="absolute top-6 right-6 text-neon-blue/20" size={48} />
+              <Quote className={`absolute top-6 right-6 ${
+                theme === 'dark' ? 'text-neon-blue/20' : 'text-blue-200'
+              }`} size={48} />
               
               {/* Content */}
               <div className="relative z-10">
@@ -93,16 +110,22 @@ const TestimonialCarousel = ({ testimonials }) => {
                     <LazyImage
                       src={testimonial.avatar}
                       alt={testimonial.name}
-                      className="w-20 h-20 rounded-full object-cover border-4 border-neon-blue/30"
+                      className={`w-20 h-20 rounded-full object-cover border-4 ${
+                        theme === 'dark' ? 'border-neon-blue/30' : 'border-blue-300'
+                      }`}
                     />
                   ) : (
                     getAvatar(testimonial.name)
                   )}
                   <div>
-                    <h3 className="text-xl font-heading font-bold text-white mb-1">
+                    <h3 className={`text-xl font-heading font-bold mb-1 ${
+                      theme === 'dark' ? 'text-white' : 'text-gray-900'
+                    }`}>
                       {testimonial.name}
                     </h3>
-                    <p className="text-neon-cyan font-body text-sm mb-2">
+                    <p className={`font-body text-sm mb-2 ${
+                      theme === 'dark' ? 'text-neon-cyan' : 'text-blue-600'
+                    }`}>
                       {testimonial.role}
                     </p>
                     <div className="flex gap-1">
@@ -112,7 +135,9 @@ const TestimonialCarousel = ({ testimonials }) => {
                 </div>
 
                 {/* Message */}
-                <p className="text-gray-300 font-body leading-relaxed italic">
+                <p className={`font-body leading-relaxed italic ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                }`}>
                   "{testimonial.message}"
                 </p>
               </div>

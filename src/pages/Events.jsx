@@ -5,6 +5,7 @@ import Footer from '../components/Footer';
 import LazyImage from '../components/LazyImage';
 import { eventsAPI } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
 const Events = () => {
   const [events, setEvents] = useState([]);
@@ -29,6 +30,7 @@ const Events = () => {
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   
   const { isAuthenticated } = useAuth();
+  const { theme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -208,14 +210,24 @@ const Events = () => {
     return (
       <Link 
         to={`/events/${event.slug || event._id}`}
-        className="glass-effect rounded-2xl overflow-hidden border border-gray-800 card-hover group block"
+        className={`rounded-2xl overflow-hidden border card-hover group block ${
+          theme === 'dark'
+            ? 'glass-effect border-gray-800'
+            : 'bg-white border-gray-200 shadow-md hover:shadow-lg'
+        }`}
       >
-        <div className="relative h-56 overflow-hidden bg-gray-900">
+        <div className={`relative h-56 overflow-hidden ${
+          theme === 'dark' ? 'bg-gray-900' : 'bg-gray-100'
+        }`}>
           {/* Skeleton Loader */}
           {!imageLoaded && (
-            <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-gray-800 via-gray-700 to-gray-800 bg-[length:200%_100%]">
+            <div className={`absolute inset-0 animate-pulse bg-gradient-to-r bg-[length:200%_100%] ${
+              theme === 'dark'
+                ? 'from-gray-800 via-gray-700 to-gray-800'
+                : 'from-gray-200 via-gray-300 to-gray-200'
+            }`}>
               <div className="absolute inset-0 flex items-center justify-center">
-                <Calendar size={48} className="text-gray-600" />
+                <Calendar size={48} className={theme === 'dark' ? 'text-gray-600' : 'text-gray-400'} />
               </div>
             </div>
           )}
@@ -223,9 +235,9 @@ const Events = () => {
           <LazyImage
             src={event.image || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&q=80'}
             alt={event.title}
-            className={`w-full h-full object-contain bg-gray-900 group-hover:scale-105 transition-all duration-500 ${
-              imageLoaded ? 'opacity-100' : 'opacity-0'
-            }`}
+            className={`w-full h-full object-contain group-hover:scale-105 transition-all duration-500 ${
+              theme === 'dark' ? 'bg-gray-900' : 'bg-gray-100'
+            } ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
             onLoad={() => setImageLoaded(true)}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent pointer-events-none"></div>
@@ -236,30 +248,40 @@ const Events = () => {
         </div>
 
         <div className="p-6">
-          <p className="text-gray-300 font-body mb-6 line-clamp-3">
+          <p className={`font-body mb-6 line-clamp-3 ${
+            theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+          }`}>
             {event.shortDescription || event.description?.substring(0, 150) || 'No description available'}
           </p>
 
           <div className="space-y-3 mb-6">
-            <div className="flex items-center gap-3 text-gray-400">
-              <Calendar size={18} className="text-neon-cyan" />
+            <div className={`flex items-center gap-3 ${
+              theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+            }`}>
+              <Calendar size={18} className={theme === 'dark' ? 'text-neon-cyan' : 'text-blue-600'} />
               <span className="font-body text-sm">{new Date(event.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
             </div>
             {event.time && (
-              <div className="flex items-center gap-3 text-gray-400">
-                <Clock size={18} className="text-neon-purple" />
+              <div className={`flex items-center gap-3 ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+              }`}>
+                <Clock size={18} className={theme === 'dark' ? 'text-neon-purple' : 'text-purple-600'} />
                 <span className="font-body text-sm">{event.time}</span>
               </div>
             )}
             {event.location && (
-              <div className="flex items-center gap-3 text-gray-400">
-                <MapPin size={18} className="text-neon-pink" />
+              <div className={`flex items-center gap-3 ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+              }`}>
+                <MapPin size={18} className={theme === 'dark' ? 'text-neon-pink' : 'text-pink-600'} />
                 <span className="font-body text-sm">{event.location}</span>
               </div>
             )}
             {event.maxAttendees && (
-              <div className="flex items-center gap-3 text-gray-400">
-                <Users size={18} className="text-neon-blue" />
+              <div className={`flex items-center gap-3 ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+              }`}>
+                <Users size={18} className={theme === 'dark' ? 'text-neon-blue' : 'text-blue-600'} />
                 <span className="font-body text-sm">Max: {event.maxAttendees} attendees</span>
               </div>
             )}
@@ -268,7 +290,11 @@ const Events = () => {
           {event.tags && event.tags.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-6">
               {event.tags.map((tag, idx) => (
-                <span key={idx} className="px-3 py-1 rounded-full bg-neon-blue/10 border border-neon-blue/30 text-neon-cyan text-xs font-mono">
+                <span key={idx} className={`px-3 py-1 rounded-full text-xs font-mono ${
+                  theme === 'dark'
+                    ? 'bg-neon-blue/10 border border-neon-blue/30 text-neon-cyan'
+                    : 'bg-blue-100 border border-blue-300 text-blue-700'
+                }`}>
                   {tag}
                 </span>
               ))}
@@ -281,26 +307,40 @@ const Events = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className={`min-h-screen flex items-center justify-center ${
+        theme === 'dark' ? 'bg-black' : 'bg-white'
+      }`}>
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-neon-blue border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <div className="text-2xl font-body text-gray-400">Loading events...</div>
+          <div className={`w-16 h-16 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-4 ${
+            theme === 'dark' ? 'border-neon-blue' : 'border-blue-600'
+          }`}></div>
+          <div className={`text-2xl font-body ${
+            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+          }`}>Loading events...</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen">
+    <div className={`min-h-screen ${theme === 'dark' ? 'bg-black' : 'bg-white'}`}>
       {/* Hero Section */}
       <section className="pt-32 pb-20 px-4 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-radial from-neon-blue/10 via-transparent to-transparent"></div>
+        <div className={`absolute inset-0 ${
+          theme === 'dark'
+            ? 'bg-gradient-radial from-neon-blue/10 via-transparent to-transparent'
+            : 'bg-gradient-radial from-blue-100/30 via-transparent to-transparent'
+        }`}></div>
         
         <div className="max-w-7xl mx-auto text-center relative z-10">
-          <h1 className="text-6xl md:text-8xl font-heading font-bold mb-6 gradient-text animate-float">
+          <h1 className={`text-6xl md:text-8xl font-heading font-bold mb-6 animate-float ${
+            theme === 'dark' ? 'gradient-text' : 'text-gray-900'
+          }`}>
             Events
           </h1>
-          <p className="text-xl md:text-2xl font-body text-gray-400 max-w-3xl mx-auto">
+          <p className={`text-xl md:text-2xl font-body max-w-3xl mx-auto ${
+            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+          }`}>
             Join us for exciting workshops, hackathons, and tech talks
           </p>
         </div>
@@ -310,13 +350,21 @@ const Events = () => {
       {!loading && events.length === 0 && (
         <section className="py-20 px-4">
           <div className="max-w-2xl mx-auto text-center">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-neon-blue/20 to-neon-purple/20 flex items-center justify-center mx-auto mb-6">
-              <Calendar size={48} className="text-neon-blue" />
+            <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 ${
+              theme === 'dark'
+                ? 'bg-gradient-to-br from-neon-blue/20 to-neon-purple/20'
+                : 'bg-gradient-to-br from-blue-100 to-purple-100'
+            }`}>
+              <Calendar size={48} className={theme === 'dark' ? 'text-neon-blue' : 'text-blue-600'} />
             </div>
-            <h2 className="text-3xl font-heading font-bold text-white mb-4">
+            <h2 className={`text-3xl font-heading font-bold mb-4 ${
+              theme === 'dark' ? 'text-white' : 'text-gray-900'
+            }`}>
               No Events Available
             </h2>
-            <p className="text-gray-400 font-body mb-8">
+            <p className={`font-body mb-8 ${
+              theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+            }`}>
               We're currently planning exciting events. Check back soon!
             </p>
           </div>
@@ -327,7 +375,9 @@ const Events = () => {
       {upcomingEvents.length > 0 && (
         <section className="py-20 px-4">
           <div className="max-w-7xl mx-auto">
-            <h2 className="text-5xl md:text-6xl font-heading font-bold mb-12 gradient-text">
+            <h2 className={`text-5xl md:text-6xl font-heading font-bold mb-12 ${
+              theme === 'dark' ? 'gradient-text' : 'text-gray-900'
+            }`}>
               Upcoming Events
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -341,9 +391,15 @@ const Events = () => {
 
       {/* Previous Events */}
       {previousEvents.length > 0 && (
-        <section className="py-20 px-4 bg-gradient-to-b from-transparent via-neon-purple/5 to-transparent">
+        <section className={`py-20 px-4 ${
+          theme === 'dark'
+            ? 'bg-gradient-to-b from-transparent via-neon-purple/5 to-transparent'
+            : 'bg-gradient-to-b from-transparent via-purple-50 to-transparent'
+        }`}>
           <div className="max-w-7xl mx-auto">
-            <h2 className="text-5xl md:text-6xl font-heading font-bold mb-12 gradient-text">
+            <h2 className={`text-5xl md:text-6xl font-heading font-bold mb-12 ${
+              theme === 'dark' ? 'gradient-text' : 'text-gray-900'
+            }`}>
               Previous Events
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
