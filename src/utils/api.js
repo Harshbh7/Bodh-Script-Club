@@ -83,8 +83,8 @@ export const authAPI = {
 export const eventsAPI = {
   getAll: () => api.get('/events'),
   getOne: (id) => api.get(`/events/${id}`),
-  // Public registration - no auth required
-  register: (id, data) => {
+  // Public registration - no auth required, with retry logic
+  register: async (id, data) => {
     const publicApi = axios.create({
       baseURL: API_URL,
       headers: {
@@ -92,7 +92,44 @@ export const eventsAPI = {
       },
       timeout: 30000,
     });
-    return publicApi.post(`/events/${id}/register`, data);
+    
+    // Retry logic for registration
+    const maxRetries = 3;
+    let lastError;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🔄 Registration attempt ${attempt}/${maxRetries} for event: ${id}`);
+        const response = await publicApi.post(`/events/${id}/register`, data);
+        console.log(`✅ Registration successful on attempt ${attempt}`);
+        return response;
+      } catch (error) {
+        lastError = error;
+        console.error(`❌ Registration attempt ${attempt} failed:`, {
+          status: error.response?.status,
+          message: error.response?.data?.message || error.message,
+          url: error.config?.url
+        });
+        
+        // Don't retry on client errors (400-499) except 408 (timeout) and 429 (rate limit)
+        if (error.response?.status >= 400 && error.response?.status < 500) {
+          if (error.response.status !== 408 && error.response.status !== 429) {
+            console.log(`⚠️ Client error detected, not retrying`);
+            throw error;
+          }
+        }
+        
+        // Wait before retrying (exponential backoff)
+        if (attempt < maxRetries) {
+          const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+          console.log(`⏳ Waiting ${waitTime}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+      }
+    }
+    
+    console.error(`❌ All ${maxRetries} registration attempts failed`);
+    throw lastError;
   },
   checkRegistration: (id) => api.get(`/events/${id}/check-registration`),
   getMyRegistrations: () => api.get('/events/user/registrations'),

@@ -134,6 +134,9 @@ const Events = () => {
     try {
       const { sameAsPhone, ...dataToSubmit } = registrationData;
       
+      console.log('📝 Submitting registration for event:', selectedEvent.slug || selectedEvent._id);
+      console.log('📝 Registration data:', dataToSubmit);
+      
       // For hackathons, validate team requirements
       if (selectedEvent.eventType === 'hackathon') {
         const minSize = selectedEvent.teamSettings?.minTeamSize || 1;
@@ -150,8 +153,14 @@ const Events = () => {
         dataToSubmit.isTeamRegistration = true;
       }
       
+      // Use slug if available, otherwise use _id
+      const eventIdentifier = selectedEvent.slug || selectedEvent._id;
+      console.log('🔑 Using event identifier:', eventIdentifier);
+      
       // Register for event (backend will check for duplicates by registration number)
-      await eventsAPI.register(selectedEvent._id, dataToSubmit);
+      const response = await eventsAPI.register(eventIdentifier, dataToSubmit);
+      console.log('✅ Registration successful:', response.data);
+      
       setRegistrationSuccess(true);
       
       // Reset form after 2 seconds and close modal
@@ -173,7 +182,21 @@ const Events = () => {
         setRegistrationSuccess(false);
       }, 2000);
     } catch (error) {
-      alert(error.response?.data?.message || 'Registration failed');
+      console.error('❌ Registration error:', error);
+      console.error('❌ Error response:', error.response?.data);
+      
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          'Registration failed. Please try again.';
+      
+      // Show more detailed error message
+      if (error.response?.data?.missingFields) {
+        alert(`Please fill in all required fields: ${error.response.data.missingFields.join(', ')}`);
+      } else if (error.response?.data?.error === 'DUPLICATE_REGISTRATION') {
+        alert('You have already registered for this event with this registration number.');
+      } else {
+        alert(errorMessage);
+      }
     } finally {
       setSubmitting(false);
     }

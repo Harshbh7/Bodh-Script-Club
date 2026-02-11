@@ -181,6 +181,9 @@ const EventDetail = () => {
     try {
       const { sameAsPhone, ...dataToSubmit } = registrationData;
       
+      console.log('📝 Submitting registration for event:', event.slug || event._id);
+      console.log('📝 Registration data:', dataToSubmit);
+      
       // For hackathons, validate team requirements
       if (event.eventType === 'hackathon') {
         const minSize = event.teamSettings?.minTeamSize || 1;
@@ -197,7 +200,13 @@ const EventDetail = () => {
         dataToSubmit.isTeamRegistration = true;
       }
       
-      await eventsAPI.register(event._id, dataToSubmit);
+      // Use slug if available, otherwise use _id
+      const eventIdentifier = event.slug || event._id;
+      console.log('🔑 Using event identifier:', eventIdentifier);
+      
+      const response = await eventsAPI.register(eventIdentifier, dataToSubmit);
+      console.log('✅ Registration successful:', response.data);
+      
       setRegistrationSuccess(true);
       
       setTimeout(() => {
@@ -218,7 +227,21 @@ const EventDetail = () => {
         setRegistrationSuccess(false);
       }, 2000);
     } catch (error) {
-      alert(error.response?.data?.message || 'Registration failed');
+      console.error('❌ Registration error:', error);
+      console.error('❌ Error response:', error.response?.data);
+      
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          'Registration failed. Please try again.';
+      
+      // Show more detailed error message
+      if (error.response?.data?.missingFields) {
+        alert(`Please fill in all required fields: ${error.response.data.missingFields.join(', ')}`);
+      } else if (error.response?.data?.error === 'DUPLICATE_REGISTRATION') {
+        alert('You have already registered for this event with this registration number.');
+      } else {
+        alert(errorMessage);
+      }
     } finally {
       setSubmitting(false);
     }
