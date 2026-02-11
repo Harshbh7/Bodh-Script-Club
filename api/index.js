@@ -802,23 +802,32 @@ const handlers = {
       const { id } = req.params;
       const registrationData = req.body;
 
+      console.log(`📝 Registration attempt for event: ${id}`);
+      console.log(`🔍 Is valid ObjectId: ${mongoose.Types.ObjectId.isValid(id)}`);
+
       // Validate required fields
       if (!registrationData.registrationNo) {
+        console.log('❌ Registration number missing');
         return res.status(400).json({ message: 'Registration number is required' });
       }
 
       // Check if event exists - support both slug and ObjectId
       let event;
       if (mongoose.Types.ObjectId.isValid(id)) {
+        console.log('🔍 Trying to find event by ObjectId...');
         event = await Event.findById(id);
       }
       if (!event) {
+        console.log('🔍 Trying to find event by slug...');
         event = await Event.findOne({ slug: id });
       }
       
       if (!event) {
+        console.log('❌ Event not found');
         return res.status(404).json({ message: 'Event not found' });
       }
+
+      console.log(`✅ Event found: ${event.title} (ID: ${event._id})`);
 
       // Check if event is paid (should go through payment flow)
       if (event.isPaid && event.price > 0) {
@@ -918,24 +927,31 @@ const handlers = {
       const { id } = req.params;
 
       console.log(`📋 Fetching registrations for event: ${id}`);
+      console.log(`🔍 Checking if ID is valid ObjectId: ${mongoose.Types.ObjectId.isValid(id)}`);
 
       // Check if user is admin
       if (decoded.role !== 'admin' && !decoded.isAdmin) {
+        console.log('❌ Access denied - user is not admin');
         return res.status(403).json({ message: 'Access denied' });
       }
 
       // Find event by slug or ObjectId to get the actual _id
       let event;
       if (mongoose.Types.ObjectId.isValid(id)) {
+        console.log('🔍 Trying to find event by ObjectId...');
         event = await Event.findById(id);
       }
       if (!event) {
+        console.log('🔍 Trying to find event by slug...');
         event = await Event.findOne({ slug: id });
       }
       
       if (!event) {
+        console.log('❌ Event not found');
         return res.status(404).json({ message: 'Event not found' });
       }
+
+      console.log(`✅ Event found: ${event.title} (ID: ${event._id})`);
 
       // Fetch registrations using the event's ObjectId
       const registrations = await EventRegistration.find({ event: event._id })
