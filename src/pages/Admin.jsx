@@ -788,33 +788,6 @@ const SubmissionsContent = ({ submissions, onUpdateStatus, onExport }) => {
             ))}
           </div>
         </>
-      ) : (                                View Profile
-                              </a>
-                            ) : (
-                              <p className="text-sm text-gray-400 font-body">Not provided</p>
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500 font-body mb-1">Submitted At</p>
-                            <p className="text-sm text-white font-body">
-                              {submission.createdAt ? new Date(submission.createdAt).toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              }) : 'N/A'}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </>
-              ))}
-            </tbody>
-          </table>
-        </div>
       ) : (
         <div className="text-center py-12">
           <FileText size={48} className="mx-auto text-gray-600 mb-4" />
