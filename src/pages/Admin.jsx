@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
+import imageCompression from 'browser-image-compression';
 import { 
   Users, Calendar, Image, MessageSquare, FileText, Download, 
-  CheckCircle, XCircle, Clock, Trash2, Eye, X, RefreshCw, MapPin, IndianRupee
+  CheckCircle, XCircle, Clock, Trash2, Eye, X, RefreshCw, MapPin, Upload
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import AdminNavbar from '../components/AdminNavbar';
-import { submissionsAPI, eventsAPI, testimonialsAPI, membersAPI, galleryAPI, paymentAPI } from '../utils/api';
+import { submissionsAPI, eventsAPI, testimonialsAPI, membersAPI } from '../utils/api';
 
 const Admin = () => {
   const { user, loading: authLoading } = useAuth();
@@ -19,8 +22,6 @@ const Admin = () => {
   const [events, setEvents] = useState([]);
   const [testimonials, setTestimonials] = useState([]);
   const [members, setMembers] = useState([]);
-  const [gallery, setGallery] = useState([]);
-  const [payments, setPayments] = useState([]);
 
   // Handle tab change with proper event handling
   const handleTabChange = (tabId, event) => {
@@ -82,9 +83,6 @@ const Admin = () => {
           break;
         case 'testimonial':
           await testimonialsAPI.delete(id);
-          break;
-        case 'gallery':
-          await galleryAPI.delete(id);
           break;
         default:
           throw new Error('Invalid type');
@@ -171,7 +169,7 @@ const Admin = () => {
     console.log('Fetching admin dashboard data...');
     
     try {
-      const [subsData, eventsData, testsData, membersData, galleryData, paymentsData] = await Promise.all([
+      const [subsData, eventsData, testsData, membersData] = await Promise.all([
         submissionsAPI.getAll().catch(err => {
           console.error('Failed to fetch submissions:', err);
           return { data: [] };
@@ -187,14 +185,6 @@ const Admin = () => {
         membersAPI.getAll().catch(err => {
           console.error('Failed to fetch members:', err);
           return { data: [] };
-        }),
-        galleryAPI.getAll().catch(err => {
-          console.error('Failed to fetch gallery:', err);
-          return { data: [] };
-        }),
-        paymentAPI.getAllPayments().catch(err => {
-          console.error('Failed to fetch payments:', err);
-          return { data: { payments: [] } };
         })
       ]);
 
@@ -211,8 +201,6 @@ const Admin = () => {
       setEvents(normalizeToArray(eventsData));
       setTestimonials(normalizeToArray(testsData));
       setMembers(normalizeToArray(membersData));
-      setGallery(normalizeToArray(galleryData));
-      setPayments(paymentsData?.data?.payments || []);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -262,15 +250,12 @@ const Admin = () => {
   const safeEvents = Array.isArray(events) ? events : [];
   const safeTestimonials = Array.isArray(testimonials) ? testimonials : [];
   const safeMembers = Array.isArray(members) ? members : [];
-  const safeGallery = Array.isArray(gallery) ? gallery : [];
 
   const tabs = [
     { id: 'submissions', label: 'Join Requests', icon: FileText, count: safeSubmissions.length },
     { id: 'events', label: 'Events', icon: Calendar, count: safeEvents.length },
-    { id: 'payments', label: 'Payment History', icon: IndianRupee, count: Array.isArray(payments) ? payments.length : 0 },
     { id: 'testimonials', label: 'Testimonials', icon: MessageSquare, count: safeTestimonials.length },
     { id: 'members', label: 'Members', icon: Users, count: safeMembers.length },
-    { id: 'gallery', label: 'Gallery', icon: Image, count: safeGallery.length },
   ];
 
   return (
@@ -321,14 +306,6 @@ const Admin = () => {
                 <span className="text-3xl font-heading font-bold text-white">{safeMembers.length}</span>
               </div>
               <p className="text-sm font-body text-gray-400">Team Members</p>
-            </div>
-
-            <div className="glass-effect rounded-2xl p-6 border border-gray-800 hover:border-neon-green transition-all duration-300">
-              <div className="flex items-center justify-between mb-2">
-                <Image className="text-neon-green" size={32} />
-                <span className="text-3xl font-heading font-bold text-white">{safeGallery.length}</span>
-              </div>
-              <p className="text-sm font-body text-gray-400">Gallery Items</p>
             </div>
           </div>
 
@@ -405,11 +382,6 @@ const Admin = () => {
                     onDelete={(id, name) => handleDelete(id, 'event', name)}
                   />
                 )}
-                {activeTab === 'payments' && (
-                  <PaymentHistoryContent 
-                    payments={payments}
-                  />
-                )}
                 {activeTab === 'testimonials' && (
                   <TestimonialsContent 
                     testimonials={safeTestimonials} 
@@ -423,14 +395,6 @@ const Admin = () => {
                     onCreate={() => handleCreate('member')}
                     onEdit={(item) => handleEdit(item, 'member')}
                     onDelete={(id, name) => handleDelete(id, 'member', name)}
-                  />
-                )}
-                {activeTab === 'gallery' && (
-                  <GalleryContent 
-                    gallery={safeGallery} 
-                    onCreate={() => handleCreate('gallery')}
-                    onEdit={(item) => handleEdit(item, 'gallery')}
-                    onDelete={(id, name) => handleDelete(id, 'gallery', name)}
                   />
                 )}
               </>
@@ -899,7 +863,7 @@ const EventsContent = ({ events, onCreate, onEdit, onDelete }) => {
                   <img
                     src={event.image}
                     alt={event.title}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain bg-gray-900"
                     onError={(e) => {
                       e.target.style.display = 'none';
                       e.target.nextSibling.style.display = 'flex';
@@ -930,7 +894,7 @@ const EventsContent = ({ events, onCreate, onEdit, onDelete }) => {
                   {event.title}
                 </h3>
                 <p className="text-sm font-body text-gray-400 mb-4 line-clamp-2">
-                  {event.description}
+                  {event.shortDescription || event.description?.replace(/<[^>]*>/g, '').substring(0, 150) || 'No description'}
                 </p>
 
                 <div className="space-y-2 mb-4">
@@ -958,16 +922,10 @@ const EventsContent = ({ events, onCreate, onEdit, onDelete }) => {
                     <Users size={16} className="text-neon-purple" />
                     {event.registrationCount || 0} Registrations
                   </div>
-                  {event.isPaid && event.price > 0 && (
-                    <div className="flex items-center gap-2 text-sm font-body text-green-400">
-                      <IndianRupee size={16} className="text-green-400" />
-                      ₹{event.price} (Paid Event)
-                    </div>
-                  )}
-                  {!event.isPaid && (
-                    <div className="flex items-center gap-2 text-sm font-body text-blue-400">
-                      <CheckCircle size={16} className="text-blue-400" />
-                      Free Event
+                  {event.slug && (
+                    <div className="flex items-center gap-2 text-xs font-mono text-gray-500 mt-2 pt-2 border-t border-gray-800">
+                      <span className="text-gray-600">URL:</span>
+                      <span className="text-neon-cyan">/events/{event.slug}</span>
                     </div>
                   )}
                 </div>
@@ -1085,27 +1043,19 @@ const EventsContent = ({ events, onCreate, onEdit, onDelete }) => {
               ) : registrations.length > 0 ? (
                 <>
                   <div className="mb-4 p-4 bg-neon-blue/10 border border-neon-blue/30 rounded-xl">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm text-gray-400 font-body">Total Registrations</p>
                         <p className="text-2xl font-heading font-bold text-neon-cyan">{registrations.length}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-400 font-body">Paid</p>
-                        <p className="text-2xl font-heading font-bold text-green-400">
-                          {registrations.filter(r => r.paymentStatus === 'completed').length}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-400 font-body">Free</p>
-                        <p className="text-2xl font-heading font-bold text-blue-400">
-                          {registrations.filter(r => r.paymentStatus === 'free').length}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-400 font-body">Revenue</p>
-                        <p className="text-2xl font-heading font-bold text-green-400">
-                          ₹{registrations.filter(r => r.payment).reduce((sum, r) => sum + (r.payment?.amount || 0), 0)}
+                        <p className="text-sm text-gray-400 font-body">Latest Registration</p>
+                        <p className="text-lg font-heading font-bold text-blue-400">
+                          {registrations[0]?.registeredAt ? new Date(registrations[0].registeredAt).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          }) : 'N/A'}
                         </p>
                       </div>
                     </div>
@@ -1121,9 +1071,6 @@ const EventsContent = ({ events, onCreate, onEdit, onDelete }) => {
                           <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Phone</th>
                           <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Course</th>
                           <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Section</th>
-                          <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Payment</th>
-                          <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Amount</th>
-                          <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Order ID</th>
                           <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Registered</th>
                         </tr>
                       </thead>
@@ -1135,25 +1082,6 @@ const EventsContent = ({ events, onCreate, onEdit, onDelete }) => {
                             <td className="py-3 px-4 font-body text-gray-300">{reg.phoneNumber}</td>
                             <td className="py-3 px-4 font-body text-gray-300">{reg.course || 'N/A'}</td>
                             <td className="py-3 px-4 font-body text-gray-300">{reg.section}</td>
-                            <td className="py-3 px-4">
-                              <span className={`px-3 py-1 rounded-full text-xs font-body ${
-                                reg.paymentStatus === 'completed' ? 'bg-green-500/20 text-green-400' :
-                                reg.paymentStatus === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
-                                'bg-blue-500/20 text-blue-400'
-                              }`}>
-                                {reg.paymentStatus || 'free'}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 font-body text-white">
-                              {reg.payment ? `₹${reg.payment.amount}` : '-'}
-                            </td>
-                            <td className="py-3 px-4 font-mono text-xs text-gray-400">
-                              {reg.payment?.orderId ? (
-                                <span title={reg.payment.orderId}>
-                                  {reg.payment.orderId.substring(0, 12)}...
-                                </span>
-                              ) : '-'}
-                            </td>
                             <td className="py-3 px-4 font-body text-gray-300 text-sm">
                               {reg.registeredAt ? new Date(reg.registeredAt).toLocaleDateString('en-US', {
                                 year: 'numeric',
@@ -1182,13 +1110,6 @@ const EventsContent = ({ events, onCreate, onEdit, onDelete }) => {
                             </h3>
                             <p className="text-sm font-body text-gray-400">{reg.registrationNo}</p>
                           </div>
-                          <span className={`px-3 py-1 rounded-full text-xs font-body flex-shrink-0 ml-2 ${
-                            reg.paymentStatus === 'completed' ? 'bg-green-500/20 text-green-400' :
-                            reg.paymentStatus === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
-                            'bg-blue-500/20 text-blue-400'
-                          }`}>
-                            {reg.paymentStatus || 'free'}
-                          </span>
                         </div>
 
                         {/* Card Details */}
@@ -1205,18 +1126,6 @@ const EventsContent = ({ events, onCreate, onEdit, onDelete }) => {
                             <span className="text-gray-500 font-body">Section:</span>
                             <span className="text-white font-body">{reg.section}</span>
                           </div>
-                          {reg.payment && (
-                            <>
-                              <div className="flex justify-between text-sm">
-                                <span className="text-gray-500 font-body">Amount:</span>
-                                <span className="text-green-400 font-body font-semibold">₹{reg.payment.amount}</span>
-                              </div>
-                              <div className="text-sm">
-                                <span className="text-gray-500 font-body block mb-1">Order ID:</span>
-                                <span className="text-gray-400 font-mono text-xs break-all">{reg.payment.orderId}</span>
-                              </div>
-                            </>
-                          )}
                           <div className="flex justify-between text-sm">
                             <span className="text-gray-500 font-body">Registered:</span>
                             <span className="text-white font-body">
@@ -1240,215 +1149,6 @@ const EventsContent = ({ events, onCreate, onEdit, onDelete }) => {
               )}
             </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const PaymentHistoryContent = ({ payments }) => {
-  const [filter, setFilter] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const filteredPayments = payments.filter(payment => {
-    const matchesFilter = filter === 'all' || payment.status === filter;
-    const matchesSearch = !searchQuery || 
-      payment.userName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      payment.orderId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      payment.registrationNo?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      payment.event?.title?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
-
-  const statusCounts = {
-    all: payments.length,
-    success: payments.filter(p => p.status === 'success').length,
-    pending: payments.filter(p => p.status === 'pending').length,
-    failed: payments.filter(p => p.status === 'failed').length,
-  };
-
-  const totalRevenue = payments
-    .filter(p => p.status === 'success')
-    .reduce((sum, p) => sum + (p.amount || 0), 0);
-
-  return (
-    <div>
-      {/* Header with Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="glass-effect rounded-xl p-4 border border-gray-800">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-400 font-body">Total Payments</span>
-            <IndianRupee size={20} className="text-neon-blue" />
-          </div>
-          <div className="text-2xl font-heading font-bold text-white">{payments.length}</div>
-        </div>
-        <div className="glass-effect rounded-xl p-4 border border-gray-800">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-400 font-body">Total Revenue</span>
-            <IndianRupee size={20} className="text-green-400" />
-          </div>
-          <div className="text-2xl font-heading font-bold text-green-400">₹{totalRevenue}</div>
-        </div>
-        <div className="glass-effect rounded-xl p-4 border border-gray-800">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-400 font-body">Successful</span>
-            <CheckCircle size={20} className="text-green-400" />
-          </div>
-          <div className="text-2xl font-heading font-bold text-white">{statusCounts.success}</div>
-        </div>
-        <div className="glass-effect rounded-xl p-4 border border-gray-800">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-400 font-body">Pending/Failed</span>
-            <XCircle size={20} className="text-red-400" />
-          </div>
-          <div className="text-2xl font-heading font-bold text-white">{statusCounts.pending + statusCounts.failed}</div>
-        </div>
-      </div>
-
-      {/* Status Filters */}
-      <div className="flex flex-wrap gap-3 mb-6">
-        {['all', 'success', 'pending', 'failed'].map((status) => (
-          <button
-            key={status}
-            type="button"
-            onClick={() => setFilter(status)}
-            className={`px-4 py-2 rounded-lg font-body text-sm transition-all ${
-              filter === status
-                ? 'bg-neon-cyan/20 text-neon-cyan border border-neon-cyan'
-                : 'bg-dark-lighter text-gray-400 hover:text-white'
-            }`}
-          >
-            {status.charAt(0).toUpperCase() + status.slice(1)} ({statusCounts[status]})
-          </button>
-        ))}
-      </div>
-
-      {/* Search Bar */}
-      <div className="mb-6">
-        <input
-          type="text"
-          placeholder="Search by name, order ID, registration number, or event..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white font-body placeholder:text-gray-500 focus:outline-none focus:border-neon-cyan focus:bg-gray-900/70 transition-all"
-        />
-      </div>
-
-      {filteredPayments.length > 0 ? (
-        <>
-          {/* Desktop Table View */}
-          <div className="hidden lg:block overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-700">
-                  <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Order ID</th>
-                  <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">User</th>
-                  <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Event</th>
-                  <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Reg. No</th>
-                  <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Phone</th>
-                  <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Amount</th>
-                  <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Status</th>
-                  <th className="text-left py-3 px-4 font-body text-gray-400 text-sm">Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredPayments.map((payment) => (
-                  <tr key={payment._id} className="border-b border-gray-800 hover:bg-white/5">
-                    <td className="py-3 px-4 font-mono text-xs text-gray-300">{payment.orderId}</td>
-                    <td className="py-3 px-4 font-body text-white">{payment.userName}</td>
-                    <td className="py-3 px-4 font-body text-gray-300">{payment.event?.title || 'N/A'}</td>
-                    <td className="py-3 px-4 font-body text-gray-300">{payment.registrationNo || 'N/A'}</td>
-                    <td className="py-3 px-4 font-body text-gray-300">{payment.phoneNumber || 'N/A'}</td>
-                    <td className="py-3 px-4 font-body text-white">₹{payment.amount}</td>
-                    <td className="py-3 px-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-body ${
-                        payment.status === 'success' ? 'bg-green-500/20 text-green-400' :
-                        payment.status === 'failed' ? 'bg-red-500/20 text-red-400' :
-                        'bg-yellow-500/20 text-yellow-400'
-                      }`}>
-                        {payment.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 font-body text-gray-300 text-sm">
-                      {payment.createdAt ? new Date(payment.createdAt).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      }) : 'N/A'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile Card View */}
-          <div className="lg:hidden space-y-4">
-            {filteredPayments.map((payment) => (
-              <div 
-                key={payment._id} 
-                className="glass-effect rounded-xl p-4 border border-gray-800 hover:border-neon-cyan/30 transition-all"
-              >
-                {/* Card Header */}
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-heading font-bold text-white truncate mb-1">
-                      {payment.userName}
-                    </h3>
-                    <p className="text-sm font-body text-gray-400 truncate">{payment.event?.title || 'N/A'}</p>
-                  </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-body flex-shrink-0 ml-2 ${
-                    payment.status === 'success' ? 'bg-green-500/20 text-green-400' :
-                    payment.status === 'failed' ? 'bg-red-500/20 text-red-400' :
-                    'bg-yellow-500/20 text-yellow-400'
-                  }`}>
-                    {payment.status}
-                  </span>
-                </div>
-
-                {/* Card Details */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500 font-body">Amount:</span>
-                    <span className="text-green-400 font-body font-semibold text-lg">₹{payment.amount}</span>
-                  </div>
-                  <div className="text-sm">
-                    <span className="text-gray-500 font-body block mb-1">Order ID:</span>
-                    <span className="text-gray-400 font-mono text-xs break-all">{payment.orderId}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500 font-body">Reg. No:</span>
-                    <span className="text-white font-body">{payment.registrationNo || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500 font-body">Phone:</span>
-                    <span className="text-white font-body">{payment.phoneNumber || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500 font-body">Date:</span>
-                    <span className="text-white font-body">
-                      {payment.createdAt ? new Date(payment.createdAt).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      }) : 'N/A'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      ) : (
-        <div className="text-center py-12">
-          <IndianRupee size={48} className="mx-auto text-gray-600 mb-4" />
-          <p className="text-gray-400 font-body">
-            {searchQuery ? 'No payments match your search' : 'No payment history found'}
-          </p>
         </div>
       )}
     </div>
@@ -1741,117 +1441,34 @@ const MembersContent = ({ members, onCreate, onEdit, onDelete }) => (
   </div>
 );
 
-const GalleryContent = ({ gallery, onCreate, onEdit, onDelete }) => (
-  <div>
-    <div className="flex items-center justify-between mb-4">
-      <p className="text-gray-400 font-body">
-        Total Gallery Items: <span className="text-neon-green font-semibold">{gallery.length}</span>
-      </p>
-      <button
-        type="button"
-        onClick={onCreate}
-        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-neon-blue to-neon-purple text-white font-body rounded-xl hover:shadow-neon transition-all"
-      >
-        <Image size={18} />
-        Add Gallery Item
-      </button>
-    </div>
-    
-    {gallery.length > 0 ? (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {gallery.map((item) => (
-          <div key={item._id} className="glass-effect rounded-xl overflow-hidden border border-gray-800 hover:border-neon-green/30 transition-all">
-            <div className="relative h-48 bg-gradient-to-br from-gray-800 to-gray-900">
-              {item.coverImage || (item.images && item.images[0]) ? (
-                <img
-                  src={item.coverImage || item.images[0]}
-                  alt={item.eventName}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Image size={48} className="text-gray-600" />
-                </div>
-              )}
-              {/* Image count badge */}
-              {item.images && item.images.length > 0 && (
-                <div className="absolute top-2 right-2 px-3 py-1 bg-black/70 backdrop-blur-sm rounded-full flex items-center gap-1">
-                  <Image size={14} className="text-neon-green" />
-                  <span className="text-xs font-semibold text-white">{item.images.length}</span>
-                </div>
-              )}
-            </div>
-            <div className="p-4">
-              <h3 className="text-lg font-heading font-bold text-white mb-2">{item.eventName}</h3>
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-neon-green text-sm font-body">{item.category}</p>
-                <span className="text-xs text-gray-500">
-                  {item.eventDate ? new Date(item.eventDate).toLocaleDateString() : 'No date'}
-                </span>
-              </div>
-              {item.description && (
-                <p className="text-sm text-gray-400 mb-3 line-clamp-2">{item.description}</p>
-              )}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => onEdit(item)}
-                  className="flex-1 px-3 py-2 bg-neon-green/10 text-neon-green border border-neon-green/30 rounded-lg text-sm font-body hover:bg-neon-green/20 transition-all flex items-center justify-center gap-1"
-                >
-                  <Eye size={14} />
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDelete(item._id, item.eventName)}
-                  className="flex-1 px-3 py-2 bg-red-500/10 text-red-400 border border-red-500/30 rounded-lg text-sm font-body hover:bg-red-500/20 transition-all flex items-center justify-center gap-1"
-                >
-                  <Trash2 size={14} />
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    ) : (
-      <div className="text-center py-12">
-        <Image size={48} className="mx-auto text-gray-600 mb-4" />
-        <p className="text-gray-400 font-body mb-4">No gallery items found</p>
-        <button
-          type="button"
-          onClick={onCreate}
-          className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-neon-blue to-neon-purple text-white font-body rounded-xl hover:shadow-neon transition-all"
-        >
-          <Image size={18} />
-          Add First Gallery Item
-        </button>
-      </div>
-    )}
-  </div>
-);
-
 export default Admin;
 
 // Modal Components
 const CreateModal = ({ type, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({});
   const [loading, setLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imagePreview, setImagePreview] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      // Process tags if it's an event
+      const dataToSubmit = { ...formData };
+      if (type === 'event' && typeof dataToSubmit.tags === 'string') {
+        dataToSubmit.tags = dataToSubmit.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+      }
+
       switch (type) {
         case 'event':
-          await eventsAPI.create(formData);
+          await eventsAPI.create(dataToSubmit);
           break;
         case 'member':
-          await membersAPI.create(formData);
+          await membersAPI.create(dataToSubmit);
           break;
-        case 'gallery':
-          await galleryAPI.create(formData);
+          await galleryAPI.create(dataToSubmit);
           break;
         default:
           throw new Error('Invalid type');
@@ -1870,6 +1487,60 @@ const CreateModal = ({ type, onClose, onSuccess }) => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Update preview if it's the image URL field
+    if (name === 'image') {
+      setImagePreview(value);
+    }
+  };
+
+  const handleQuillChange = (value) => {
+    setFormData(prev => ({ ...prev, description: value }));
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    setUploadingImage(true);
+
+    try {
+      // Compression options
+      const options = {
+        maxSizeMB: 0.8, // Target size under 1MB (0.8MB to be safe)
+        maxWidthOrHeight: 1920, // Max dimension
+        useWebWorker: true,
+        fileType: 'image/jpeg', // Convert to JPEG for better compression
+      };
+
+      // Compress the image
+      const compressedFile = await imageCompression(file, options);
+      
+      console.log('Original file size:', (file.size / 1024 / 1024).toFixed(2), 'MB');
+      console.log('Compressed file size:', (compressedFile.size / 1024 / 1024).toFixed(2), 'MB');
+
+      // Convert to base64 data URL
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result;
+        setFormData(prev => ({ ...prev, image: base64String }));
+        setImagePreview(base64String);
+        alert(`Image compressed successfully! Size: ${(compressedFile.size / 1024).toFixed(0)}KB`);
+      };
+      reader.readAsDataURL(compressedFile);
+
+    } catch (error) {
+      console.error('Error compressing image:', error);
+      alert('Failed to compress image: ' + error.message);
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   return (
@@ -1908,17 +1579,73 @@ const CreateModal = ({ type, onClose, onSuccess }) => {
                 </div>
                 <div>
                   <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
-                    Description *
+                    Short Description * (for event cards)
                   </label>
-                  <textarea
-                    name="description"
-                    value={formData.description || ''}
+                  <input
+                    type="text"
+                    name="shortDescription"
+                    value={formData.shortDescription || ''}
                     onChange={handleChange}
                     required
-                    rows={4}
-                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white placeholder:text-gray-500 resize-none"
-                    placeholder="Enter event description"
+                    maxLength={150}
+                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white placeholder:text-gray-500"
+                    placeholder="Brief description (max 150 characters)"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {(formData.shortDescription || '').length}/150 characters
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
+                    Full Description * (with rich formatting)
+                  </label>
+                  <ReactQuill
+                    theme="snow"
+                    value={formData.description || ''}
+                    onChange={handleQuillChange}
+                    className="bg-gray-900/50 rounded-lg quill-editor"
+                    modules={{
+                      toolbar: [
+                        [{ 'header': [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        ['link', 'image'],
+                        ['clean']
+                      ]
+                    }}
+                    placeholder="Enter detailed event description with rich formatting..."
+                  />
+                  <style>{`
+                    .quill-editor .ql-container {
+                      min-height: 200px;
+                      background: rgba(17, 24, 39, 0.5);
+                      border: 1px solid rgb(55, 65, 81);
+                      border-top: none;
+                      border-radius: 0 0 0.5rem 0.5rem;
+                      color: white;
+                    }
+                    .quill-editor .ql-toolbar {
+                      background: rgba(17, 24, 39, 0.5);
+                      border: 1px solid rgb(55, 65, 81);
+                      border-radius: 0.5rem 0.5rem 0 0;
+                    }
+                    .quill-editor .ql-editor {
+                      color: white;
+                      font-family: inherit;
+                    }
+                    .quill-editor .ql-editor.ql-blank::before {
+                      color: rgb(107, 114, 128);
+                    }
+                    .quill-editor .ql-stroke {
+                      stroke: rgb(156, 163, 175);
+                    }
+                    .quill-editor .ql-fill {
+                      fill: rgb(156, 163, 175);
+                    }
+                    .quill-editor .ql-picker-label {
+                      color: rgb(156, 163, 175);
+                    }
+                  `}</style>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -1962,18 +1689,68 @@ const CreateModal = ({ type, onClose, onSuccess }) => {
                 </div>
                 <div>
                   <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
-                    Event Image URL *
+                    Event Image *
                   </label>
+                  
+                  {/* Image Upload Button */}
+                  <div className="mb-3">
+                    <label className="flex items-center justify-center gap-2 px-4 py-3 bg-neon-blue/10 border-2 border-dashed border-neon-blue/30 rounded-lg cursor-pointer hover:bg-neon-blue/20 transition-all">
+                      <Upload size={20} className="text-neon-blue" />
+                      <span className="text-neon-blue font-body font-semibold">
+                        {uploadingImage ? 'Compressing...' : 'Upload Image (Auto-compress to <1MB)'}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        disabled={uploadingImage}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {/* OR Divider */}
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="flex-1 h-px bg-gray-700"></div>
+                    <span className="text-xs text-gray-500 font-body">OR</span>
+                    <div className="flex-1 h-px bg-gray-700"></div>
+                  </div>
+
+                  {/* Image URL Input */}
                   <input
-                    type="url"
+                    type="text"
                     name="image"
                     value={formData.image || ''}
                     onChange={handleChange}
                     required
                     className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white placeholder:text-gray-500"
-                    placeholder="https://example.com/event-image.jpg"
+                    placeholder="Or paste image URL here"
                   />
-                  <p className="text-xs text-gray-500 mt-1">This image will be displayed on the main page and event cards</p>
+                  
+                  {/* Image Preview */}
+                  {imagePreview && (
+                    <div className="mt-3 relative">
+                      <img 
+                        src={imagePreview} 
+                        alt="Preview" 
+                        className="w-full h-48 object-contain bg-gray-900 rounded-lg border border-gray-700"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData(prev => ({ ...prev, image: '' }));
+                          setImagePreview('');
+                        }}
+                        className="absolute top-2 right-2 p-1 bg-red-500/80 text-white rounded-full hover:bg-red-600 transition-colors"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  )}
+                  
+                  <p className="text-xs text-gray-500 mt-2">
+                    Upload an image (will be compressed to under 1MB) or paste a URL. Image will be displayed with full aspect ratio.
+                  </p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -1994,18 +1771,100 @@ const CreateModal = ({ type, onClose, onSuccess }) => {
                   </div>
                   <div>
                     <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
-                      Max Attendees
+                      Event Type *
                     </label>
-                    <input
-                      type="number"
-                      name="maxAttendees"
-                      value={formData.maxAttendees || ''}
+                    <select
+                      name="eventType"
+                      value={formData.eventType || 'other'}
                       onChange={handleChange}
-                      min="1"
-                      className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white placeholder:text-gray-500"
-                      placeholder="Leave empty for unlimited"
-                    />
+                      required
+                      className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white"
+                    >
+                      <option value="workshop">Workshop</option>
+                      <option value="meeting">Meeting</option>
+                      <option value="hackathon">Hackathon</option>
+                      <option value="other">Other</option>
+                    </select>
                   </div>
+                </div>
+                
+                {/* Team Settings for Hackathons */}
+                {formData.eventType === 'hackathon' && (
+                  <div className="border border-neon-purple/30 rounded-lg p-4 bg-neon-purple/5">
+                    <h4 className="text-lg font-heading font-bold text-neon-purple mb-3">
+                      Team Settings
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
+                          Min Team Size *
+                        </label>
+                        <input
+                          type="number"
+                          name="teamSettings.minTeamSize"
+                          value={formData.teamSettings?.minTeamSize || 1}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value) || 1;
+                            setFormData(prev => ({
+                              ...prev,
+                              teamSettings: {
+                                ...prev.teamSettings,
+                                enabled: true,
+                                minTeamSize: value
+                              }
+                            }));
+                          }}
+                          min="1"
+                          max="10"
+                          required
+                          className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
+                          Max Team Size *
+                        </label>
+                        <input
+                          type="number"
+                          name="teamSettings.maxTeamSize"
+                          value={formData.teamSettings?.maxTeamSize || 4}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value) || 4;
+                            setFormData(prev => ({
+                              ...prev,
+                              teamSettings: {
+                                ...prev.teamSettings,
+                                enabled: true,
+                                maxTeamSize: value
+                              }
+                            }));
+                          }}
+                          min="1"
+                          max="10"
+                          required
+                          className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Teams must have between {formData.teamSettings?.minTeamSize || 1} and {formData.teamSettings?.maxTeamSize || 4} members
+                    </p>
+                  </div>
+                )}
+                
+                <div>
+                  <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
+                    Max Attendees
+                  </label>
+                  <input
+                    type="number"
+                    name="maxAttendees"
+                    value={formData.maxAttendees || ''}
+                    onChange={handleChange}
+                    min="1"
+                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white placeholder:text-gray-500"
+                    placeholder="Leave empty for unlimited"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
@@ -2020,50 +1879,6 @@ const CreateModal = ({ type, onClose, onSuccess }) => {
                     placeholder="e.g., Workshop, Technical, Coding, Web Development"
                   />
                   <p className="text-xs text-gray-500 mt-1">Tags help categorize and filter events</p>
-                </div>
-
-                {/* Payment Fields */}
-                <div className="border-t border-gray-700 pt-4 mt-4">
-                  <h4 className="text-lg font-heading font-bold text-white mb-4">Payment Settings</h4>
-                  
-                  <div className="mb-4">
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        name="isPaid"
-                        checked={formData.isPaid || false}
-                        onChange={(e) => {
-                          const isPaid = e.target.checked;
-                          setFormData(prev => ({ 
-                            ...prev, 
-                            isPaid,
-                            price: isPaid ? prev.price : 0
-                          }));
-                        }}
-                        className="w-5 h-5 accent-neon-blue"
-                      />
-                      <span className="text-white font-body">This is a paid event</span>
-                    </label>
-                  </div>
-
-                  {formData.isPaid && (
-                    <div>
-                      <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
-                        Event Price (₹) *
-                      </label>
-                      <input
-                        type="number"
-                        name="price"
-                        value={formData.price || ''}
-                        onChange={handleChange}
-                        required={formData.isPaid}
-                        min="1"
-                        className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white placeholder:text-gray-500"
-                        placeholder="Enter price in rupees"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Registration fee for this event</p>
-                    </div>
-                  )}
                 </div>
               </>
             )}
@@ -2148,166 +1963,6 @@ const CreateModal = ({ type, onClose, onSuccess }) => {
               </>
             )}
 
-            {type === 'gallery' && (
-              <>
-                <div>
-                  <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
-                    Event Name *
-                  </label>
-                  <input
-                    type="text"
-                    name="eventName"
-                    value={formData.eventName || ''}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white placeholder:text-gray-500"
-                    placeholder="Enter event name"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
-                    Category *
-                  </label>
-                  <select
-                    name="category"
-                    value={formData.category || 'events'}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white"
-                  >
-                    <option value="events">Events</option>
-                    <option value="workshops">Workshops</option>
-                    <option value="competitions">Competitions</option>
-                    <option value="meetings">Meetings</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
-                    Event Date
-                  </label>
-                  <input
-                    type="date"
-                    name="eventDate"
-                    value={formData.eventDate || ''}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
-                    Description
-                  </label>
-                  <textarea
-                    name="description"
-                    value={formData.description || ''}
-                    onChange={handleChange}
-                    rows={3}
-                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white placeholder:text-gray-500 resize-none"
-                    placeholder="Brief description of the event"
-                  />
-                </div>
-                
-                {/* Multiple Images Section */}
-                <div className="border-t border-gray-700 pt-4">
-                  <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
-                    Gallery Images * (1-20 images)
-                  </label>
-                  <p className="text-xs text-gray-500 mb-3">
-                    Add up to 20 images for this gallery. The first image will be used as the cover.
-                  </p>
-                  
-                  {/* Image URL Input */}
-                  <div className="flex gap-2 mb-3">
-                    <input
-                      type="url"
-                      id="newImageUrl"
-                      placeholder="https://example.com/image.jpg"
-                      className="flex-1 px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white placeholder:text-gray-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const input = document.getElementById('newImageUrl');
-                        const url = input.value.trim();
-                        if (url && (formData.images || []).length < 20) {
-                          setFormData(prev => ({
-                            ...prev,
-                            images: [...(prev.images || []), url]
-                          }));
-                          input.value = '';
-                        } else if ((formData.images || []).length >= 20) {
-                          alert('Maximum 20 images allowed');
-                        } else {
-                          alert('Please enter a valid image URL');
-                        }
-                      }}
-                      className="px-6 py-3 bg-neon-blue/20 text-neon-blue border border-neon-blue/30 rounded-lg font-body hover:bg-neon-blue/30 transition-all whitespace-nowrap"
-                    >
-                      Add Image
-                    </button>
-                  </div>
-
-                  {/* Image List */}
-                  {formData.images && formData.images.length > 0 ? (
-                    <div className="space-y-2 max-h-60 overflow-y-auto">
-                      {formData.images.map((img, index) => (
-                        <div key={index} className="flex items-center gap-2 p-2 bg-gray-800/50 rounded-lg">
-                          <div className="flex-shrink-0 w-16 h-16 rounded overflow-hidden bg-gray-700">
-                            <img 
-                              src={img} 
-                              alt={`Gallery ${index + 1}`}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                                e.target.nextSibling.style.display = 'flex';
-                              }}
-                            />
-                            <div className="w-full h-full hidden items-center justify-center text-gray-500 text-xs">
-                              No preview
-                            </div>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-mono text-gray-400 truncate">{img}</p>
-                            {index === 0 && (
-                              <span className="text-xs text-neon-cyan">Cover Image</span>
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setFormData(prev => ({
-                                ...prev,
-                                images: prev.images.filter((_, i) => i !== index)
-                              }));
-                            }}
-                            className="p-2 text-red-400 hover:bg-red-500/20 rounded transition-colors"
-                            title="Remove image"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 border-2 border-dashed border-gray-700 rounded-lg">
-                      <svg className="w-12 h-12 mx-auto text-gray-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <p className="text-sm text-gray-500">No images added yet</p>
-                      <p className="text-xs text-gray-600 mt-1">Add at least 1 image to create the gallery</p>
-                    </div>
-                  )}
-                  
-                  <p className="text-xs text-gray-500 mt-2">
-                    Images added: {(formData.images || []).length} / 20
-                  </p>
-                </div>
-              </>
-            )}
-
             <div className="flex items-center gap-3 pt-4">
               <button
                 type="submit"
@@ -2334,6 +1989,8 @@ const CreateModal = ({ type, onClose, onSuccess }) => {
 const EditModal = ({ type, item, onClose, onSuccess }) => {
   const [formData, setFormData] = useState(item || {});
   const [loading, setLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imagePreview, setImagePreview] = useState(item?.image || '');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -2349,9 +2006,6 @@ const EditModal = ({ type, item, onClose, onSuccess }) => {
           break;
         case 'testimonial':
           await testimonialsAPI.update(item._id, formData);
-          break;
-        case 'gallery':
-          await galleryAPI.update(item._id, formData);
           break;
         default:
           throw new Error('Invalid type');
@@ -2370,6 +2024,56 @@ const EditModal = ({ type, item, onClose, onSuccess }) => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Update preview if it's the image field
+    if (name === 'image') {
+      setImagePreview(value);
+    }
+  };
+
+  const handleQuillChange = (value) => {
+    setFormData(prev => ({ ...prev, description: value }));
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    setUploadingImage(true);
+
+    try {
+      const options = {
+        maxSizeMB: 0.8,
+        maxWidthOrHeight: 1920,
+        useWebWorker: true,
+        fileType: 'image/jpeg',
+      };
+
+      const compressedFile = await imageCompression(file, options);
+      
+      console.log('Original:', (file.size / 1024 / 1024).toFixed(2), 'MB');
+      console.log('Compressed:', (compressedFile.size / 1024 / 1024).toFixed(2), 'MB');
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result;
+        setFormData(prev => ({ ...prev, image: base64String }));
+        setImagePreview(base64String);
+        alert(`Image compressed! Size: ${(compressedFile.size / 1024).toFixed(0)}KB`);
+      };
+      reader.readAsDataURL(compressedFile);
+
+    } catch (error) {
+      console.error('Error compressing image:', error);
+      alert('Failed to compress image: ' + error.message);
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   return (
@@ -2408,17 +2112,73 @@ const EditModal = ({ type, item, onClose, onSuccess }) => {
                 </div>
                 <div>
                   <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
-                    Description *
+                    Short Description * (for event cards)
                   </label>
-                  <textarea
-                    name="description"
-                    value={formData.description || ''}
+                  <input
+                    type="text"
+                    name="shortDescription"
+                    value={formData.shortDescription || ''}
                     onChange={handleChange}
                     required
-                    rows={4}
-                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white placeholder:text-gray-500 resize-none"
-                    placeholder="Enter event description"
+                    maxLength={150}
+                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white placeholder:text-gray-500"
+                    placeholder="Brief description (max 150 characters)"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {(formData.shortDescription || '').length}/150 characters
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
+                    Full Description * (with rich formatting)
+                  </label>
+                  <ReactQuill
+                    theme="snow"
+                    value={formData.description || ''}
+                    onChange={handleQuillChange}
+                    className="bg-gray-900/50 rounded-lg quill-editor"
+                    modules={{
+                      toolbar: [
+                        [{ 'header': [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        ['link', 'image'],
+                        ['clean']
+                      ]
+                    }}
+                    placeholder="Enter detailed event description with rich formatting..."
+                  />
+                  <style>{`
+                    .quill-editor .ql-container {
+                      min-height: 200px;
+                      background: rgba(17, 24, 39, 0.5);
+                      border: 1px solid rgb(55, 65, 81);
+                      border-top: none;
+                      border-radius: 0 0 0.5rem 0.5rem;
+                      color: white;
+                    }
+                    .quill-editor .ql-toolbar {
+                      background: rgba(17, 24, 39, 0.5);
+                      border: 1px solid rgb(55, 65, 81);
+                      border-radius: 0.5rem 0.5rem 0 0;
+                    }
+                    .quill-editor .ql-editor {
+                      color: white;
+                      font-family: inherit;
+                    }
+                    .quill-editor .ql-editor.ql-blank::before {
+                      color: rgb(107, 114, 128);
+                    }
+                    .quill-editor .ql-stroke {
+                      stroke: rgb(156, 163, 175);
+                    }
+                    .quill-editor .ql-fill {
+                      fill: rgb(156, 163, 175);
+                    }
+                    .quill-editor .ql-picker-label {
+                      color: rgb(156, 163, 175);
+                    }
+                  `}</style>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -2462,18 +2222,68 @@ const EditModal = ({ type, item, onClose, onSuccess }) => {
                 </div>
                 <div>
                   <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
-                    Event Image URL *
+                    Event Image *
                   </label>
+                  
+                  {/* Image Upload Button */}
+                  <div className="mb-3">
+                    <label className="flex items-center justify-center gap-2 px-4 py-3 bg-neon-blue/10 border-2 border-dashed border-neon-blue/30 rounded-lg cursor-pointer hover:bg-neon-blue/20 transition-all">
+                      <Upload size={20} className="text-neon-blue" />
+                      <span className="text-neon-blue font-body font-semibold">
+                        {uploadingImage ? 'Compressing...' : 'Upload Image (Auto-compress to <1MB)'}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        disabled={uploadingImage}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {/* OR Divider */}
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="flex-1 h-px bg-gray-700"></div>
+                    <span className="text-xs text-gray-500 font-body">OR</span>
+                    <div className="flex-1 h-px bg-gray-700"></div>
+                  </div>
+
+                  {/* Image URL Input */}
                   <input
-                    type="url"
+                    type="text"
                     name="image"
                     value={formData.image || ''}
                     onChange={handleChange}
                     required
                     className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white placeholder:text-gray-500"
-                    placeholder="https://example.com/event-image.jpg"
+                    placeholder="Or paste image URL here"
                   />
-                  <p className="text-xs text-gray-500 mt-1">This image will be displayed on the main page and event cards</p>
+                  
+                  {/* Image Preview */}
+                  {imagePreview && (
+                    <div className="mt-3 relative">
+                      <img 
+                        src={imagePreview} 
+                        alt="Preview" 
+                        className="w-full h-48 object-contain bg-gray-900 rounded-lg border border-gray-700"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData(prev => ({ ...prev, image: '' }));
+                          setImagePreview('');
+                        }}
+                        className="absolute top-2 right-2 p-1 bg-red-500/80 text-white rounded-full hover:bg-red-600 transition-colors"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  )}
+                  
+                  <p className="text-xs text-gray-500 mt-2">
+                    Upload an image (will be compressed to under 1MB) or paste a URL. Image will be displayed with full aspect ratio.
+                  </p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -2494,18 +2304,100 @@ const EditModal = ({ type, item, onClose, onSuccess }) => {
                   </div>
                   <div>
                     <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
-                      Max Attendees
+                      Event Type *
                     </label>
-                    <input
-                      type="number"
-                      name="maxAttendees"
-                      value={formData.maxAttendees || ''}
+                    <select
+                      name="eventType"
+                      value={formData.eventType || 'other'}
                       onChange={handleChange}
-                      min="1"
-                      className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white placeholder:text-gray-500"
-                      placeholder="Leave empty for unlimited"
-                    />
+                      required
+                      className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white"
+                    >
+                      <option value="workshop">Workshop</option>
+                      <option value="meeting">Meeting</option>
+                      <option value="hackathon">Hackathon</option>
+                      <option value="other">Other</option>
+                    </select>
                   </div>
+                </div>
+                
+                {/* Team Settings for Hackathons */}
+                {formData.eventType === 'hackathon' && (
+                  <div className="border border-neon-purple/30 rounded-lg p-4 bg-neon-purple/5">
+                    <h4 className="text-lg font-heading font-bold text-neon-purple mb-3">
+                      Team Settings
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
+                          Min Team Size *
+                        </label>
+                        <input
+                          type="number"
+                          name="teamSettings.minTeamSize"
+                          value={formData.teamSettings?.minTeamSize || 1}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value) || 1;
+                            setFormData(prev => ({
+                              ...prev,
+                              teamSettings: {
+                                ...prev.teamSettings,
+                                enabled: true,
+                                minTeamSize: value
+                              }
+                            }));
+                          }}
+                          min="1"
+                          max="10"
+                          required
+                          className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
+                          Max Team Size *
+                        </label>
+                        <input
+                          type="number"
+                          name="teamSettings.maxTeamSize"
+                          value={formData.teamSettings?.maxTeamSize || 4}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value) || 4;
+                            setFormData(prev => ({
+                              ...prev,
+                              teamSettings: {
+                                ...prev.teamSettings,
+                                enabled: true,
+                                maxTeamSize: value
+                              }
+                            }));
+                          }}
+                          min="1"
+                          max="10"
+                          required
+                          className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Teams must have between {formData.teamSettings?.minTeamSize || 1} and {formData.teamSettings?.maxTeamSize || 4} members
+                    </p>
+                  </div>
+                )}
+                
+                <div>
+                  <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
+                    Max Attendees
+                  </label>
+                  <input
+                    type="number"
+                    name="maxAttendees"
+                    value={formData.maxAttendees || ''}
+                    onChange={handleChange}
+                    min="1"
+                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white placeholder:text-gray-500"
+                    placeholder="Leave empty for unlimited"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
@@ -2522,46 +2414,172 @@ const EditModal = ({ type, item, onClose, onSuccess }) => {
                   <p className="text-xs text-gray-500 mt-1">Tags help categorize and filter events</p>
                 </div>
 
-                {/* Payment Fields */}
-                <div className="border-t border-gray-700 pt-4 mt-4">
-                  <h4 className="text-lg font-heading font-bold text-white mb-4">Payment Settings</h4>
-                  
-                  <div className="mb-4">
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        name="isPaid"
-                        checked={formData.isPaid || false}
-                        onChange={(e) => {
-                          const isPaid = e.target.checked;
-                          setFormData(prev => ({ 
-                            ...prev, 
-                            isPaid,
-                            price: isPaid ? prev.price : 0
-                          }));
-                        }}
-                        className="w-5 h-5 accent-neon-blue"
-                      />
-                      <span className="text-white font-body">This is a paid event</span>
-                    </label>
+                {/* Gallery Management Section */}
+                <div className="border-t border-gray-700 pt-6 mt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <label className="block text-sm font-heading font-semibold text-neon-blue mb-1">
+                        Event Gallery (Up to 20 images)
+                      </label>
+                      <p className="text-xs text-gray-500">
+                        Add images to showcase this event. Images will be displayed in a lightbox gallery.
+                      </p>
+                    </div>
+                    <span className="text-sm font-body text-gray-400">
+                      {(formData.gallery || []).length}/20
+                    </span>
                   </div>
 
-                  {formData.isPaid && (
-                    <div>
-                      <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
-                        Event Price (₹) *
-                      </label>
-                      <input
-                        type="number"
-                        name="price"
-                        value={formData.price || ''}
-                        onChange={handleChange}
-                        required={formData.isPaid}
-                        min="1"
-                        className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white placeholder:text-gray-500"
-                        placeholder="Enter price in rupees"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Registration fee for this event</p>
+                  {/* Add Image Form */}
+                  <div className="mb-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+                    <div className="space-y-3">
+                      {/* Image Upload */}
+                      <div>
+                        <label className="flex items-center justify-center gap-2 px-4 py-3 bg-neon-purple/10 border-2 border-dashed border-neon-purple/30 rounded-lg cursor-pointer hover:bg-neon-purple/20 transition-all">
+                          <Upload size={18} className="text-neon-purple" />
+                          <span className="text-neon-purple font-body font-semibold text-sm">
+                            {uploadingImage ? 'Compressing...' : 'Upload Gallery Image'}
+                          </span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              
+                              if ((formData.gallery || []).length >= 20) {
+                                alert('Maximum 20 images allowed');
+                                return;
+                              }
+
+                              setUploadingImage(true);
+                              try {
+                                const options = {
+                                  maxSizeMB: 0.8,
+                                  maxWidthOrHeight: 1920,
+                                  useWebWorker: true,
+                                  fileType: 'image/jpeg',
+                                };
+                                const compressedFile = await imageCompression(file, options);
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  const base64String = reader.result;
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    gallery: [...(prev.gallery || []), { url: base64String, caption: '', uploadedAt: new Date() }]
+                                  }));
+                                  alert(`Image added! Size: ${(compressedFile.size / 1024).toFixed(0)}KB`);
+                                };
+                                reader.readAsDataURL(compressedFile);
+                              } catch (error) {
+                                alert('Failed to compress image: ' + error.message);
+                              } finally {
+                                setUploadingImage(false);
+                              }
+                            }}
+                            disabled={uploadingImage || (formData.gallery || []).length >= 20}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+
+                      {/* OR Divider */}
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 h-px bg-gray-700"></div>
+                        <span className="text-xs text-gray-500 font-body">OR</span>
+                        <div className="flex-1 h-px bg-gray-700"></div>
+                      </div>
+
+                      {/* URL Input */}
+                      <div className="flex gap-2">
+                        <input
+                          type="url"
+                          id="galleryImageUrl"
+                          placeholder="Paste image URL"
+                          className="flex-1 px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-purple focus:outline-none transition font-body text-white placeholder:text-gray-500 text-sm"
+                        />
+                        <input
+                          type="text"
+                          id="galleryImageCaption"
+                          placeholder="Caption (optional)"
+                          className="flex-1 px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-purple focus:outline-none transition font-body text-white placeholder:text-gray-500 text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const urlInput = document.getElementById('galleryImageUrl');
+                            const captionInput = document.getElementById('galleryImageCaption');
+                            const url = urlInput.value.trim();
+                            const caption = captionInput.value.trim();
+                            
+                            if (!url) {
+                              alert('Please enter an image URL');
+                              return;
+                            }
+
+                            if ((formData.gallery || []).length >= 20) {
+                              alert('Maximum 20 images allowed');
+                              return;
+                            }
+
+                            setFormData(prev => ({
+                              ...prev,
+                              gallery: [...(prev.gallery || []), { url, caption, uploadedAt: new Date() }]
+                            }));
+                            
+                            urlInput.value = '';
+                            captionInput.value = '';
+                          }}
+                          className="px-4 py-2 bg-neon-purple/20 text-neon-purple border border-neon-purple/30 rounded-lg font-body text-sm hover:bg-neon-purple/30 transition-all whitespace-nowrap"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Gallery Images Grid */}
+                  {formData.gallery && formData.gallery.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      {formData.gallery.map((img, index) => (
+                        <div key={index} className="relative group aspect-square">
+                          <img 
+                            src={img.url} 
+                            alt={img.caption || `Gallery ${index + 1}`}
+                            className="w-full h-full object-cover rounded-lg border border-gray-700"
+                          />
+                          {/* Caption Badge */}
+                          {img.caption && (
+                            <div className="absolute bottom-0 left-0 right-0 bg-black/70 p-1 text-xs text-white truncate rounded-b-lg">
+                              {img.caption}
+                            </div>
+                          )}
+                          {/* Remove Button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData(prev => ({
+                                ...prev,
+                                gallery: prev.gallery.filter((_, i) => i !== index)
+                              }));
+                            }}
+                            className="absolute top-1 right-1 p-1 bg-red-500/90 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                            title="Remove image"
+                          >
+                            <X size={14} />
+                          </button>
+                          {/* Image Number */}
+                          <div className="absolute top-1 left-1 px-2 py-0.5 bg-black/70 text-white text-xs rounded">
+                            #{index + 1}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 border-2 border-dashed border-gray-700 rounded-lg">
+                      <Image size={40} className="mx-auto text-gray-600 mb-2" />
+                      <p className="text-sm text-gray-500 font-body">No gallery images yet</p>
+                      <p className="text-xs text-gray-600 font-body mt-1">Upload or add image URLs above</p>
                     </div>
                   )}
                 </div>
@@ -2649,166 +2667,6 @@ const EditModal = ({ type, item, onClose, onSuccess }) => {
               </>
             )}
 
-            {type === 'gallery' && (
-              <>
-                <div>
-                  <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
-                    Event Name *
-                  </label>
-                  <input
-                    type="text"
-                    name="eventName"
-                    value={formData.eventName || ''}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white placeholder:text-gray-500"
-                    placeholder="Enter event name"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
-                    Category *
-                  </label>
-                  <select
-                    name="category"
-                    value={formData.category || 'events'}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white"
-                  >
-                    <option value="events">Events</option>
-                    <option value="workshops">Workshops</option>
-                    <option value="competitions">Competitions</option>
-                    <option value="meetings">Meetings</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
-                    Event Date
-                  </label>
-                  <input
-                    type="date"
-                    name="eventDate"
-                    value={formData.eventDate ? formData.eventDate.split('T')[0] : ''}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
-                    Description
-                  </label>
-                  <textarea
-                    name="description"
-                    value={formData.description || ''}
-                    onChange={handleChange}
-                    rows={3}
-                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white placeholder:text-gray-500 resize-none"
-                    placeholder="Brief description of the event"
-                  />
-                </div>
-                
-                {/* Multiple Images Section */}
-                <div className="border-t border-gray-700 pt-4">
-                  <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
-                    Gallery Images * (1-20 images)
-                  </label>
-                  <p className="text-xs text-gray-500 mb-3">
-                    Add up to 20 images for this gallery. The first image will be used as the cover.
-                  </p>
-                  
-                  {/* Image URL Input */}
-                  <div className="flex gap-2 mb-3">
-                    <input
-                      type="url"
-                      id="editImageUrl"
-                      placeholder="https://example.com/image.jpg"
-                      className="flex-1 px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-neon-blue focus:outline-none transition font-body text-white placeholder:text-gray-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const input = document.getElementById('editImageUrl');
-                        const url = input.value.trim();
-                        if (url && (formData.images || []).length < 20) {
-                          setFormData(prev => ({
-                            ...prev,
-                            images: [...(prev.images || []), url]
-                          }));
-                          input.value = '';
-                        } else if ((formData.images || []).length >= 20) {
-                          alert('Maximum 20 images allowed');
-                        } else {
-                          alert('Please enter a valid image URL');
-                        }
-                      }}
-                      className="px-6 py-3 bg-neon-blue/20 text-neon-blue border border-neon-blue/30 rounded-lg font-body hover:bg-neon-blue/30 transition-all whitespace-nowrap"
-                    >
-                      Add Image
-                    </button>
-                  </div>
-
-                  {/* Image List */}
-                  {formData.images && formData.images.length > 0 ? (
-                    <div className="space-y-2 max-h-60 overflow-y-auto">
-                      {formData.images.map((img, index) => (
-                        <div key={index} className="flex items-center gap-2 p-2 bg-gray-800/50 rounded-lg">
-                          <div className="flex-shrink-0 w-16 h-16 rounded overflow-hidden bg-gray-700">
-                            <img 
-                              src={img} 
-                              alt={`Gallery ${index + 1}`}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                                e.target.nextSibling.style.display = 'flex';
-                              }}
-                            />
-                            <div className="w-full h-full hidden items-center justify-center text-gray-500 text-xs">
-                              No preview
-                            </div>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-mono text-gray-400 truncate">{img}</p>
-                            {index === 0 && (
-                              <span className="text-xs text-neon-cyan">Cover Image</span>
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setFormData(prev => ({
-                                ...prev,
-                                images: prev.images.filter((_, i) => i !== index)
-                              }));
-                            }}
-                            className="p-2 text-red-400 hover:bg-red-500/20 rounded transition-colors"
-                            title="Remove image"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 border-2 border-dashed border-gray-700 rounded-lg">
-                      <svg className="w-12 h-12 mx-auto text-gray-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <p className="text-sm text-gray-500">No images added yet</p>
-                      <p className="text-xs text-gray-600 mt-1">Add at least 1 image to create the gallery</p>
-                    </div>
-                  )}
-                  
-                  <p className="text-xs text-gray-500 mt-2">
-                    Images added: {(formData.images || []).length} / 20
-                  </p>
-                </div>
-              </>
-            )}
-
             {type === 'testimonial' && (
               <div>
                 <label className="block text-sm font-heading font-semibold mb-2 text-neon-blue">
@@ -2850,3 +2708,5 @@ const EditModal = ({ type, item, onClose, onSuccess }) => {
     </div>
   );
 };
+
+

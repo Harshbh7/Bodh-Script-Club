@@ -21,11 +21,19 @@ const Navbar = () => {
   }, []);
 
   useEffect(() => {
-    gsap.fromTo('.nav-item', 
-      { opacity: 0, y: -20 },
-      { opacity: 1, y: 0, duration: 0.6, stagger: 0.1, ease: 'power3.out' }
-    );
-  }, []);
+    // Delay animation to ensure DOM is ready
+    const timer = setTimeout(() => {
+      const navItems = document.querySelectorAll('.nav-item');
+      if (navItems.length > 0) {
+        gsap.fromTo('.nav-item', 
+          { opacity: 0, y: -20 },
+          { opacity: 1, y: 0, duration: 0.6, stagger: 0.1, ease: 'power3.out' }
+        );
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [location.pathname]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -47,7 +55,6 @@ const Navbar = () => {
     { path: '/', label: 'Home' },
     { path: '/about', label: 'About' },
     { path: '/events', label: 'Events' },
-    { path: '/gallery', label: 'Gallery' },
     { path: '/members', label: 'Members' },
     { path: '/join', label: 'Join Us' },
   ];

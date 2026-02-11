@@ -83,7 +83,17 @@ export const authAPI = {
 export const eventsAPI = {
   getAll: () => api.get('/events'),
   getOne: (id) => api.get(`/events/${id}`),
-  register: (id, data) => api.post(`/events/${id}/register`, data),
+  // Public registration - no auth required
+  register: (id, data) => {
+    const publicApi = axios.create({
+      baseURL: API_URL,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      timeout: 30000,
+    });
+    return publicApi.post(`/events/${id}/register`, data);
+  },
   checkRegistration: (id) => api.get(`/events/${id}/check-registration`),
   getMyRegistrations: () => api.get('/events/user/registrations'),
   getRegistrations: (id) => api.get(`/events/${id}/registrations`),
@@ -91,6 +101,8 @@ export const eventsAPI = {
   create: (data) => api.post('/events', data),
   update: (id, data) => api.put(`/events/${id}`, data),
   delete: (id) => api.delete(`/events/${id}`),
+  addGalleryImage: (id, data) => api.post(`/events/${id}/gallery`, data),
+  deleteGalleryImage: (id, imageId) => api.delete(`/events/${id}/gallery/${imageId}`),
 };
 
 // Payment API

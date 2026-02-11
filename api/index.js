@@ -324,6 +324,44 @@ const handlers = {
     }
   },
 
+  // Events - Get single event by ID
+  'GET /events/:id': async (req, res) => {
+    await connectDB();
+    
+    try {
+      const { id } = req.params;
+      let event;
+      
+      // Try to find by slug first, then by ID
+      // Check if id looks like a MongoDB ObjectId (24 hex characters)
+      const isObjectId = /^[0-9a-fA-F]{24}$/.test(id);
+      
+      if (isObjectId) {
+        // Try finding by ID first
+        event = await Event.findById(id);
+      }
+      
+      // If not found by ID or not an ObjectId, try finding by slug
+      if (!event) {
+        event = await Event.findOne({ slug: id });
+      }
+      
+      if (!event) {
+        return res.status(404).json({
+          message: 'Event not found'
+        });
+      }
+      
+      res.status(200).json(event);
+    } catch (error) {
+      console.error('Error fetching event:', error);
+      res.status(500).json({
+        message: 'Failed to fetch event',
+        error: error.message
+      });
+    }
+  },
+
   // Gallery
   'GET /gallery': async (req, res) => {
     await connectDB();
@@ -739,9 +777,13 @@ const handlers = {
     await connectDB();
     
     try {
-      const decoded = verifyToken(req);
       const { id } = req.params;
       const registrationData = req.body;
+
+      // Validate required fields
+      if (!registrationData.registrationNo) {
+        return res.status(400).json({ message: 'Registration number is required' });
+      }
 
       // Check if event exists
       const event = await Event.findById(id);
@@ -758,20 +800,50 @@ const handlers = {
         });
       }
 
-      // Check if already registered
+      // Check if already registered with this registration number for this event
       const existingRegistration = await EventRegistration.findOne({
         event: id,
-        user: decoded.userId
+        registrationNo: registrationData.registrationNo
       });
 
       if (existingRegistration) {
-        return res.status(400).json({ message: 'You are already registered for this event' });
+        return res.status(400).json({ 
+          message: 'This registration number is already registered for this event' 
+        });
       }
 
-      // Create registration for free event
+      // For hackathons, validate team requirements
+      if (event.eventType === 'hackathon' && event.teamSettings?.enabled) {
+        if (!registrationData.teamName) {
+          return res.status(400).json({ message: 'Team name is required for hackathon registration' });
+        }
+
+        const teamSize = (registrationData.teamMembers?.length || 0) + 1; // +1 for leader
+        const minSize = event.teamSettings.minTeamSize || 1;
+        const maxSize = event.teamSettings.maxTeamSize || 4;
+
+        if (teamSize < minSize || teamSize > maxSize) {
+          return res.status(400).json({ 
+            message: `Team must have between ${minSize} and ${maxSize} members (including team leader)` 
+          });
+        }
+
+        // Validate team member data
+        if (registrationData.teamMembers && registrationData.teamMembers.length > 0) {
+          for (const member of registrationData.teamMembers) {
+            if (!member.name || !member.registrationNo || !member.phoneNumber || !member.course) {
+              return res.status(400).json({ 
+                message: 'All team members must have name, registration number, phone, and course' 
+              });
+            }
+          }
+        }
+      }
+
+      // Create registration for free event (no user authentication required)
       const registration = new EventRegistration({
         event: id,
-        user: decoded.userId,
+        user: null, // No user required for public registration
         name: registrationData.name,
         registrationNo: registrationData.registrationNo,
         phoneNumber: registrationData.phoneNumber,
@@ -780,6 +852,10 @@ const handlers = {
         department: registrationData.department,
         year: registrationData.year,
         course: registrationData.course,
+        // Team registration fields
+        isTeamRegistration: registrationData.isTeamRegistration || false,
+        teamName: registrationData.teamName || null,
+        teamMembers: registrationData.teamMembers || [],
         paymentStatus: 'free',
         registeredAt: new Date()
       });
@@ -898,45 +974,61 @@ const handlers = {
           select: 'name email',
           options: { strictPopulate: false }
         })
-        .populate({
-          path: 'payment',
-          select: 'orderId paymentId amount status',
-          options: { strictPopulate: false }
-        })
         .lean()
         .sort({ registeredAt: -1 });
 
       console.log(`Exporting ${registrations.length} registrations for event: ${event.title}`);
 
-      // Create CSV header with payment info
-      const csvHeader = 'Registration No,Name,Phone Number,WhatsApp,Course,Section,Year,Department,Payment Status,Amount,Order ID,Payment ID,Registered At\n';
-
-      // Create CSV rows
-      const csvRows = registrations.map(reg => {
-        const escapeCSV = (value) => {
-          if (!value) return '""';
-          const stringValue = String(value);
-          const escaped = stringValue.replace(/"/g, '""');
-          if (escaped.includes(',') || escaped.includes('\n') || escaped.includes('"')) {
-            return `"${escaped}"`;
-          }
+      const escapeCSV = (value) => {
+        if (!value) return '""';
+        const stringValue = String(value);
+        const escaped = stringValue.replace(/"/g, '""');
+        if (escaped.includes(',') || escaped.includes('\n') || escaped.includes('"')) {
           return `"${escaped}"`;
-        };
+        }
+        return `"${escaped}"`;
+      };
 
-        return [
-          escapeCSV(reg.registrationNo || 'N/A'),
-          escapeCSV(reg.name || 'N/A'),
-          escapeCSV(reg.phoneNumber || 'N/A'),
-          escapeCSV(reg.whatsappNumber || reg.phoneNumber || 'N/A'),
-          escapeCSV(reg.course || 'N/A'),
-          escapeCSV(reg.section || 'N/A'),
-          escapeCSV(reg.year || 'N/A'),
-          escapeCSV(reg.department || 'N/A'),
-          escapeCSV(reg.paymentStatus || 'free'),
-          escapeCSV(reg.payment?.amount ? `₹${reg.payment.amount}` : 'Free'),
-          escapeCSV(reg.payment?.orderId || 'N/A'),
-          escapeCSV(reg.payment?.paymentId || 'N/A'),
-          escapeCSV(reg.registeredAt ? new Date(reg.registeredAt).toLocaleString('en-US', {
+      // Check if this is a hackathon with team registrations
+      const isHackathon = event.eventType === 'hackathon';
+      const hasTeamRegistrations = registrations.some(reg => reg.isTeamRegistration);
+
+      let csvData;
+
+      if (isHackathon && hasTeamRegistrations) {
+        // Hackathon CSV with team details
+        const csvHeader = 'Team Name,Team Leader Name,Leader Reg No,Leader Phone,Leader WhatsApp,Leader Course,Leader Section,Leader Year,Leader Department,Member 2 Name,Member 2 Reg No,Member 2 Phone,Member 2 Course,Member 3 Name,Member 3 Reg No,Member 3 Phone,Member 3 Course,Member 4 Name,Member 4 Reg No,Member 4 Phone,Member 4 Course,Registered At\n';
+
+        const csvRows = registrations.map(reg => {
+          const row = [
+            escapeCSV(reg.teamName || 'N/A'),
+            escapeCSV(reg.name || 'N/A'),
+            escapeCSV(reg.registrationNo || 'N/A'),
+            escapeCSV(reg.phoneNumber || 'N/A'),
+            escapeCSV(reg.whatsappNumber || reg.phoneNumber || 'N/A'),
+            escapeCSV(reg.course || 'N/A'),
+            escapeCSV(reg.section || 'N/A'),
+            escapeCSV(reg.year || 'N/A'),
+            escapeCSV(reg.department || 'N/A')
+          ];
+
+          // Add team members (up to 3 additional members)
+          const teamMembers = reg.teamMembers || [];
+          for (let i = 0; i < 3; i++) {
+            if (teamMembers[i]) {
+              row.push(
+                escapeCSV(teamMembers[i].name || 'N/A'),
+                escapeCSV(teamMembers[i].registrationNo || 'N/A'),
+                escapeCSV(teamMembers[i].phoneNumber || 'N/A'),
+                escapeCSV(teamMembers[i].course || 'N/A')
+              );
+            } else {
+              row.push('""', '""', '""', '""');
+            }
+          }
+
+          // Add registration date
+          row.push(escapeCSV(reg.registeredAt ? new Date(reg.registeredAt).toLocaleString('en-US', {
             year: 'numeric',
             month: '2-digit',
             day: '2-digit',
@@ -944,17 +1036,48 @@ const handlers = {
             minute: '2-digit',
             second: '2-digit',
             hour12: true
-          }) : 'N/A')
-        ].join(',');
-      }).join('\n');
+          }) : 'N/A'));
+
+          return row.join(',');
+        }).join('\n');
+
+        csvData = csvHeader + csvRows;
+      } else {
+        // Regular event CSV (non-hackathon or no team registrations)
+        const csvHeader = 'Registration No,Name,Phone Number,WhatsApp,Course,Section,Year,Department,Registered At\n';
+
+        const csvRows = registrations.map(reg => {
+          return [
+            escapeCSV(reg.registrationNo || 'N/A'),
+            escapeCSV(reg.name || 'N/A'),
+            escapeCSV(reg.phoneNumber || 'N/A'),
+            escapeCSV(reg.whatsappNumber || reg.phoneNumber || 'N/A'),
+            escapeCSV(reg.course || 'N/A'),
+            escapeCSV(reg.section || 'N/A'),
+            escapeCSV(reg.year || 'N/A'),
+            escapeCSV(reg.department || 'N/A'),
+            escapeCSV(reg.registeredAt ? new Date(reg.registeredAt).toLocaleString('en-US', {
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              hour12: true
+            }) : 'N/A')
+          ].join(',');
+        }).join('\n');
+
+        csvData = csvHeader + csvRows;
+      }
 
       // Add UTF-8 BOM for Excel compatibility
       const BOM = '\uFEFF';
-      const csvData = BOM + csvHeader + csvRows;
+      const finalCSV = BOM + csvData;
 
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="${event.title.replace(/[^a-z0-9]/gi, '-')}-registrations-${new Date().toISOString().split('T')[0]}.csv"`);
-      res.status(200).send(csvData);
+      res.status(200).send(finalCSV);
 
       console.log('CSV export successful');
     } catch (error) {
@@ -1586,6 +1709,91 @@ const handlers = {
         message: 'Failed to fetch event payments', 
         error: error.message,
         stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+    }
+  },
+
+  // Event Gallery - Add image to event gallery
+  'POST /events/:id/gallery': async (req, res) => {
+    await connectDB();
+    
+    try {
+      const decoded = verifyToken(req);
+      const { id } = req.params;
+      const { url, caption } = req.body;
+      
+      // Check if user is admin
+      if (decoded.role !== 'admin' && !decoded.isAdmin) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+
+      if (!url) {
+        return res.status(400).json({ message: 'Image URL is required' });
+      }
+
+      const event = await Event.findById(id);
+      if (!event) {
+        return res.status(404).json({ message: 'Event not found' });
+      }
+
+      // Add image to gallery
+      event.gallery = event.gallery || [];
+      event.gallery.push({
+        url,
+        caption: caption || '',
+        uploadedAt: new Date()
+      });
+      event.updatedAt = new Date();
+
+      await event.save();
+
+      res.status(200).json({
+        message: 'Image added to gallery successfully',
+        event
+      });
+    } catch (error) {
+      console.error('Error adding image to gallery:', error);
+      res.status(500).json({
+        message: 'Failed to add image to gallery',
+        error: error.message
+      });
+    }
+  },
+
+  // Event Gallery - Delete image from event gallery
+  'DELETE /events/:id/gallery/:imageId': async (req, res) => {
+    await connectDB();
+    
+    try {
+      const decoded = verifyToken(req);
+      const { id, imageId } = req.params;
+      
+      // Check if user is admin
+      if (decoded.role !== 'admin' && !decoded.isAdmin) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+
+      const event = await Event.findById(id);
+      if (!event) {
+        return res.status(404).json({ message: 'Event not found' });
+      }
+
+      // Remove image from gallery
+      event.gallery = event.gallery || [];
+      event.gallery = event.gallery.filter(img => img._id.toString() !== imageId);
+      event.updatedAt = new Date();
+
+      await event.save();
+
+      res.status(200).json({
+        message: 'Image removed from gallery successfully',
+        event
+      });
+    } catch (error) {
+      console.error('Error removing image from gallery:', error);
+      res.status(500).json({
+        message: 'Failed to remove image from gallery',
+        error: error.message
       });
     }
   },

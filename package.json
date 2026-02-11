@@ -17,6 +17,7 @@
     "generate-jwt-secrets": "node scripts/generateJWTSecrets.js generate",
     "validate-jwt-secrets": "node scripts/generateJWTSecrets.js validate",
     "setup-vercel-env": "node scripts/setupVercelEnv.js",
+    "add-slugs": "node scripts/add-slugs-to-events.js",
     "seed-about": "node scripts/seedAbout.js",
     "seed-events": "node scripts/seedEvents.js",
     "seed-gallery": "node scripts/seedGallery.js",
@@ -31,6 +32,7 @@
   "dependencies": {
     "axios": "^1.6.5",
     "bcryptjs": "^2.4.3",
+    "browser-image-compression": "^2.0.2",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
@@ -46,8 +48,10 @@
     "razorpay": "^2.9.6",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-quill": "^2.0.0",
     "react-router-dom": "^6.22.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "yet-another-react-lightbox": "^3.28.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",

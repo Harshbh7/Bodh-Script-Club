@@ -13,8 +13,8 @@ import LoadingScreen from './components/LoadingScreen';
 import Home from './pages/Home';
 import About from './pages/About';
 import Events from './pages/Events';
+import EventDetail from './pages/EventDetail';
 import Members from './pages/Members';
-import Gallery from './pages/Gallery';
 import Feedback from './pages/Feedback';
 import JoinUs from './pages/JoinUs';
 import Login from './pages/Login';
@@ -132,8 +132,8 @@ function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/events" element={<Events />} />
+                <Route path="/events/:id" element={<EventDetail />} />
                 <Route path="/members" element={<Members />} />
-                <Route path="/gallery" element={<Gallery />} />
                 <Route path="/feedback" element={<Feedback />} />
                 <Route path="/join" element={<JoinUs />} />
                 <Route path="/login" element={<Login />} />

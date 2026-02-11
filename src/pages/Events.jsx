@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Calendar, MapPin, Clock, Users, CheckCircle, X, IndianRupee } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Calendar, MapPin, Clock, Users, CheckCircle, X } from 'lucide-react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import Footer from '../components/Footer';
 import LazyImage from '../components/LazyImage';
-import { eventsAPI, paymentAPI } from '../utils/api';
+import { eventsAPI } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
 const Events = () => {
@@ -20,11 +20,13 @@ const Events = () => {
     section: '',
     department: '',
     year: '',
-    course: ''
+    course: '',
+    // Team fields for hackathons
+    teamName: '',
+    teamMembers: []
   });
   const [submitting, setSubmitting] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
-  const [processingPayment, setProcessingPayment] = useState(false);
   
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -72,12 +74,7 @@ const Events = () => {
   const previousEvents = Array.isArray(events) ? events.filter(e => e.status === 'completed') : [];
 
   const handleRegisterClick = (event) => {
-    if (!isAuthenticated) {
-      // Redirect to login with return URL
-      navigate('/login', { state: { from: '/events', eventId: event._id } });
-      return;
-    }
-    
+    // Allow registration without authentication
     setSelectedEvent(event);
     setShowRegistrationModal(true);
     setRegistrationSuccess(false);
@@ -101,6 +98,35 @@ const Events = () => {
     }
   };
 
+  const addTeamMember = () => {
+    const maxSize = selectedEvent?.teamSettings?.maxTeamSize || 4;
+    if (registrationData.teamMembers.length >= maxSize - 1) {
+      alert(`Maximum ${maxSize} members allowed (including you)`);
+      return;
+    }
+    
+    setRegistrationData(prev => ({
+      ...prev,
+      teamMembers: [...prev.teamMembers, { name: '', registrationNo: '', phoneNumber: '', course: '' }]
+    }));
+  };
+
+  const removeTeamMember = (index) => {
+    setRegistrationData(prev => ({
+      ...prev,
+      teamMembers: prev.teamMembers.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateTeamMember = (index, field, value) => {
+    setRegistrationData(prev => ({
+      ...prev,
+      teamMembers: prev.teamMembers.map((member, i) => 
+        i === index ? { ...member, [field]: value } : member
+      )
+    }));
+  };
+
   const handleSubmitRegistration = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -108,128 +134,47 @@ const Events = () => {
     try {
       const { sameAsPhone, ...dataToSubmit } = registrationData;
       
-      // Check if event is paid
-      if (selectedEvent.isPaid && selectedEvent.price > 0) {
-        // Handle paid event - initiate Razorpay payment
-        await handlePayment(dataToSubmit);
-      } else {
-        // Handle free event - direct registration
-        await eventsAPI.register(selectedEvent._id, dataToSubmit);
-        setRegistrationSuccess(true);
+      // For hackathons, validate team requirements
+      if (selectedEvent.eventType === 'hackathon') {
+        const minSize = selectedEvent.teamSettings?.minTeamSize || 1;
+        const maxSize = selectedEvent.teamSettings?.maxTeamSize || 4;
+        const teamSize = dataToSubmit.teamMembers.length + 1; // +1 for the leader
         
-        // Reset form after 2 seconds and close modal
-        setTimeout(() => {
-          setShowRegistrationModal(false);
-          setRegistrationData({
-            name: '',
-            registrationNo: '',
-            phoneNumber: '',
-            whatsappNumber: '',
-            sameAsPhone: false,
-            section: '',
-            department: '',
-            year: '',
-            course: ''
-          });
-          setRegistrationSuccess(false);
-        }, 2000);
+        if (teamSize < minSize || teamSize > maxSize) {
+          alert(`Team must have between ${minSize} and ${maxSize} members (including you)`);
+          setSubmitting(false);
+          return;
+        }
+        
+        // Mark as team registration
+        dataToSubmit.isTeamRegistration = true;
       }
+      
+      // Register for event (backend will check for duplicates by registration number)
+      await eventsAPI.register(selectedEvent._id, dataToSubmit);
+      setRegistrationSuccess(true);
+      
+      // Reset form after 2 seconds and close modal
+      setTimeout(() => {
+        setShowRegistrationModal(false);
+        setRegistrationData({
+          name: '',
+          registrationNo: '',
+          phoneNumber: '',
+          whatsappNumber: '',
+          sameAsPhone: false,
+          section: '',
+          department: '',
+          year: '',
+          course: '',
+          teamName: '',
+          teamMembers: []
+        });
+        setRegistrationSuccess(false);
+      }, 2000);
     } catch (error) {
       alert(error.response?.data?.message || 'Registration failed');
     } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handlePayment = async (registrationData) => {
-    try {
-      setProcessingPayment(true);
-
-      // Create Razorpay order
-      const { data: orderData } = await paymentAPI.createOrder({
-        eventId: selectedEvent._id,
-        amount: selectedEvent.price,
-        registrationData
-      });
-
-      // Load Razorpay script if not already loaded
-      if (!window.Razorpay) {
-        const script = document.createElement('script');
-        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-        script.async = true;
-        document.body.appendChild(script);
-        
-        await new Promise((resolve) => {
-          script.onload = resolve;
-        });
-      }
-
-      // Razorpay options
-      const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_RhY9r0Btuo0gVQ',
-        amount: orderData.order.amount,
-        currency: 'INR',
-        name: 'Bodh Script Club',
-        description: `Registration for ${selectedEvent.title}`,
-        order_id: orderData.order.id,
-        handler: async function (response) {
-          try {
-            // Verify payment
-            const verifyData = {
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              registrationData
-            };
-
-            await paymentAPI.verifyPayment(verifyData);
-            
-            setRegistrationSuccess(true);
-            setProcessingPayment(false);
-
-            // Reset form after 2 seconds and close modal
-            setTimeout(() => {
-              setShowRegistrationModal(false);
-              setRegistrationData({
-                name: '',
-                registrationNo: '',
-                phoneNumber: '',
-                whatsappNumber: '',
-                sameAsPhone: false,
-                section: '',
-                department: '',
-                year: '',
-                course: ''
-              });
-              setRegistrationSuccess(false);
-            }, 2000);
-          } catch (error) {
-            console.error('Payment verification failed:', error);
-            alert('Payment verification failed. Please contact support.');
-            setProcessingPayment(false);
-          }
-        },
-        prefill: {
-          name: registrationData.name,
-          contact: registrationData.phoneNumber,
-        },
-        theme: {
-          color: '#00D9FF'
-        },
-        modal: {
-          ondismiss: function() {
-            setProcessingPayment(false);
-            setSubmitting(false);
-          }
-        }
-      };
-
-      const rzp = new window.Razorpay(options);
-      rzp.open();
-    } catch (error) {
-      console.error('Payment initiation failed:', error);
-      alert('Failed to initiate payment. Please try again.');
-      setProcessingPayment(false);
       setSubmitting(false);
     }
   };
@@ -238,7 +183,10 @@ const Events = () => {
     const [imageLoaded, setImageLoaded] = useState(false);
     
     return (
-      <div className="glass-effect rounded-2xl overflow-hidden border border-gray-800 card-hover group">
+      <Link 
+        to={`/events/${event.slug || event._id}`}
+        className="glass-effect rounded-2xl overflow-hidden border border-gray-800 card-hover group block"
+      >
         <div className="relative h-56 overflow-hidden bg-gray-900">
           {/* Skeleton Loader */}
           {!imageLoaded && (
@@ -252,79 +200,59 @@ const Events = () => {
           <LazyImage
             src={event.image || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&q=80'}
             alt={event.title}
-            className={`w-full h-full object-cover group-hover:scale-110 transition-all duration-500 ${
+            className={`w-full h-full object-contain bg-gray-900 group-hover:scale-105 transition-all duration-500 ${
               imageLoaded ? 'opacity-100' : 'opacity-0'
             }`}
             onLoad={() => setImageLoaded(true)}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent"></div>
-          
-          {/* Price Badge */}
-          {event.isPaid && event.price > 0 && (
-            <div className="absolute top-4 right-4 bg-gradient-to-r from-neon-blue to-neon-purple px-4 py-2 rounded-full flex items-center gap-2 shadow-lg">
-              <IndianRupee size={16} className="text-white" />
-              <span className="text-white font-bold">{event.price}</span>
-            </div>
-          )}
-          {!event.isPaid && (
-            <div className="absolute top-4 right-4 bg-green-500/90 px-4 py-2 rounded-full shadow-lg">
-              <span className="text-white font-bold text-sm">FREE</span>
-            </div>
-          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent pointer-events-none"></div>
           
           <div className="absolute bottom-4 left-4 right-4">
-          <h3 className="text-2xl font-heading font-bold text-white mb-2">{event.title}</h3>
-        </div>
-      </div>
-
-      <div className="p-6">
-        <p className="text-gray-300 font-body mb-6 line-clamp-3">{event.description}</p>
-
-        <div className="space-y-3 mb-6">
-          <div className="flex items-center gap-3 text-gray-400">
-            <Calendar size={18} className="text-neon-cyan" />
-            <span className="font-body text-sm">{new Date(event.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            <h3 className="text-2xl font-heading font-bold text-white mb-2 drop-shadow-lg">{event.title}</h3>
           </div>
-          {event.time && (
-            <div className="flex items-center gap-3 text-gray-400">
-              <Clock size={18} className="text-neon-purple" />
-              <span className="font-body text-sm">{event.time}</span>
-            </div>
-          )}
-          {event.location && (
-            <div className="flex items-center gap-3 text-gray-400">
-              <MapPin size={18} className="text-neon-pink" />
-              <span className="font-body text-sm">{event.location}</span>
-            </div>
-          )}
-          {event.maxAttendees && (
-            <div className="flex items-center gap-3 text-gray-400">
-              <Users size={18} className="text-neon-blue" />
-              <span className="font-body text-sm">Max: {event.maxAttendees} attendees</span>
-            </div>
-          )}
         </div>
 
-        {event.tags && event.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-6">
-            {event.tags.map((tag, idx) => (
-              <span key={idx} className="px-3 py-1 rounded-full bg-neon-blue/10 border border-neon-blue/30 text-neon-cyan text-xs font-mono">
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
+        <div className="p-6">
+          <p className="text-gray-300 font-body mb-6 line-clamp-3">
+            {event.shortDescription || event.description?.substring(0, 150) || 'No description available'}
+          </p>
 
-        {showRegisterButton && (
-          <button
-            onClick={() => handleRegisterClick(event)}
-            className="w-full py-3 bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink rounded-xl font-body font-semibold hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-neon-blue/50"
-          >
-            {event.isPaid && event.price > 0 ? `Register - ₹${event.price}` : 'Register Now'}
-          </button>
-        )}
-      </div>
-    </div>
+          <div className="space-y-3 mb-6">
+            <div className="flex items-center gap-3 text-gray-400">
+              <Calendar size={18} className="text-neon-cyan" />
+              <span className="font-body text-sm">{new Date(event.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            </div>
+            {event.time && (
+              <div className="flex items-center gap-3 text-gray-400">
+                <Clock size={18} className="text-neon-purple" />
+                <span className="font-body text-sm">{event.time}</span>
+              </div>
+            )}
+            {event.location && (
+              <div className="flex items-center gap-3 text-gray-400">
+                <MapPin size={18} className="text-neon-pink" />
+                <span className="font-body text-sm">{event.location}</span>
+              </div>
+            )}
+            {event.maxAttendees && (
+              <div className="flex items-center gap-3 text-gray-400">
+                <Users size={18} className="text-neon-blue" />
+                <span className="font-body text-sm">Max: {event.maxAttendees} attendees</span>
+              </div>
+            )}
+          </div>
+
+          {event.tags && event.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-6">
+              {event.tags.map((tag, idx) => (
+                <span key={idx} className="px-3 py-1 rounded-full bg-neon-blue/10 border border-neon-blue/30 text-neon-cyan text-xs font-mono">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </Link>
     );
   };
 
@@ -574,27 +502,112 @@ const Events = () => {
                       </div>
                     </div>
 
-                    {selectedEvent?.isPaid && selectedEvent?.price > 0 && (
-                      <div className="p-3 rounded-lg bg-neon-blue/10 border border-neon-blue/30">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-white font-body">Event Fee:</span>
-                          <span className="text-xl font-heading font-bold text-neon-cyan flex items-center gap-1">
-                            <IndianRupee size={18} />
-                            {selectedEvent.price}
-                          </span>
+                    {/* Team Registration for Hackathons */}
+                    {selectedEvent?.eventType === 'hackathon' && (
+                      <div className="border-t border-gray-700 pt-4 mt-2">
+                        <div className="mb-3 p-3 rounded-lg bg-neon-purple/10 border border-neon-purple/30">
+                          <h4 className="text-sm font-heading font-bold text-neon-purple mb-1">
+                            Team Registration
+                          </h4>
+                          <p className="text-xs text-gray-400">
+                            Team size: {selectedEvent.teamSettings?.minTeamSize || 1} - {selectedEvent.teamSettings?.maxTeamSize || 4} members (including you)
+                          </p>
                         </div>
-                        <p className="text-xs text-gray-400 mt-1">
-                          Secure payment via Razorpay
-                        </p>
+
+                        <div className="mb-3">
+                          <label className="block text-xs sm:text-sm font-body text-gray-400 mb-1.5">Team Name *</label>
+                          <input
+                            type="text"
+                            name="teamName"
+                            value={registrationData.teamName}
+                            onChange={handleInputChange}
+                            required
+                            className="w-full px-3 py-2 sm:px-4 sm:py-2.5 text-sm bg-black/50 border border-gray-700 rounded-lg text-white font-body focus:border-neon-purple focus:outline-none transition-colors"
+                            placeholder="Enter your team name"
+                          />
+                        </div>
+
+                        <div className="mb-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-xs sm:text-sm font-body text-gray-400">
+                              Team Members ({registrationData.teamMembers.length + 1}/{selectedEvent.teamSettings?.maxTeamSize || 4})
+                            </label>
+                            {registrationData.teamMembers.length < (selectedEvent.teamSettings?.maxTeamSize || 4) - 1 && (
+                              <button
+                                type="button"
+                                onClick={addTeamMember}
+                                className="text-xs px-3 py-1 bg-neon-purple/20 text-neon-purple border border-neon-purple/30 rounded-lg hover:bg-neon-purple/30 transition-colors"
+                              >
+                                + Add Member
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Team Leader (You) */}
+                          <div className="mb-2 p-3 rounded-lg bg-neon-cyan/5 border border-neon-cyan/20">
+                            <p className="text-xs text-neon-cyan font-semibold mb-1">Team Leader (You)</p>
+                            <p className="text-xs text-gray-400">{registrationData.name || 'Your name'} - {registrationData.registrationNo || 'Your reg. no.'}</p>
+                          </div>
+
+                          {/* Additional Team Members */}
+                          {registrationData.teamMembers.map((member, index) => (
+                            <div key={index} className="mb-3 p-3 rounded-lg bg-gray-900/50 border border-gray-700">
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-xs font-semibold text-gray-300">Member {index + 2}</p>
+                                <button
+                                  type="button"
+                                  onClick={() => removeTeamMember(index)}
+                                  className="text-xs text-red-400 hover:text-red-300"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <input
+                                  type="text"
+                                  value={member.name}
+                                  onChange={(e) => updateTeamMember(index, 'name', e.target.value)}
+                                  required
+                                  className="px-2 py-1.5 text-xs bg-black/50 border border-gray-700 rounded text-white focus:border-neon-purple focus:outline-none"
+                                  placeholder="Name *"
+                                />
+                                <input
+                                  type="text"
+                                  value={member.registrationNo}
+                                  onChange={(e) => updateTeamMember(index, 'registrationNo', e.target.value)}
+                                  required
+                                  className="px-2 py-1.5 text-xs bg-black/50 border border-gray-700 rounded text-white focus:border-neon-purple focus:outline-none"
+                                  placeholder="Reg. No. *"
+                                />
+                                <input
+                                  type="tel"
+                                  value={member.phoneNumber}
+                                  onChange={(e) => updateTeamMember(index, 'phoneNumber', e.target.value)}
+                                  required
+                                  className="px-2 py-1.5 text-xs bg-black/50 border border-gray-700 rounded text-white focus:border-neon-purple focus:outline-none"
+                                  placeholder="Phone *"
+                                />
+                                <input
+                                  type="text"
+                                  value={member.course}
+                                  onChange={(e) => updateTeamMember(index, 'course', e.target.value)}
+                                  required
+                                  className="px-2 py-1.5 text-xs bg-black/50 border border-gray-700 rounded text-white focus:border-neon-purple focus:outline-none"
+                                  placeholder="Course *"
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
 
                     <button
                       type="submit"
-                      disabled={submitting || processingPayment}
+                      disabled={submitting}
                       className="w-full py-3 bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink rounded-lg font-body font-semibold text-sm sm:text-base hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-neon-blue/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                     >
-                      {processingPayment ? 'Processing...' : submitting ? 'Submitting...' : selectedEvent?.isPaid && selectedEvent?.price > 0 ? `Pay ₹${selectedEvent.price} & Register` : 'Submit Registration'}
+                      {submitting ? 'Submitting...' : 'Submit Registration'}
                     </button>
                   </form>
                 </>

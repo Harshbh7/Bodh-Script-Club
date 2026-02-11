@@ -115,6 +115,18 @@ const Home = () => {
         <div className="absolute inset-0 bg-gradient-radial from-neon-blue/5 via-transparent to-transparent"></div>
         
         <div className="text-center max-w-6xl relative z-10">
+          {/* Club Logo */}
+          <div className="mb-8 flex justify-center">
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-r from-neon-blue via-neon-purple to-neon-pink rounded-full blur-2xl opacity-30 group-hover:opacity-50 transition-opacity duration-500"></div>
+              <img 
+                src="/logo.png" 
+                alt="Bodh Script Club Logo" 
+                className="relative w-32 h-32 md:w-40 md:h-40 lg:w-48 lg:h-48 object-contain animate-float drop-shadow-2xl"
+              />
+            </div>
+          </div>
+
           <div className="mb-6 inline-block">
             <span className="px-6 py-2 glass-effect rounded-full text-neon-cyan font-mono text-sm animate-pulse-slow">
               ✨ Welcome to the Future of Tech
@@ -261,7 +273,7 @@ const Home = () => {
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center p-6">
-                    <span className="font-body text-white text-lg">View</span>
+                    {/* <span className="font-body text-white text-lg">View</span> */}
                   </div>
                 </div>
               </div>
@@ -302,7 +314,9 @@ const Home = () => {
                   />
                   <div className="p-6">
                     <h3 className="text-xl font-heading font-bold mb-2 text-white">{event.title}</h3>
-                    <p className="font-body text-gray-400 text-sm mb-4 line-clamp-2">{event.description}</p>
+                    <p className="font-body text-gray-400 text-sm mb-4 line-clamp-2">
+                      {event.shortDescription || event.description?.replace(/<[^>]*>/g, '').substring(0, 100) || 'No description available'}
+                    </p>
                     <div className="flex items-center justify-between">
                       <span className="font-mono text-xs text-neon-cyan">
                         {new Date(event.date).toLocaleDateString()}

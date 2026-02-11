@@ -398,7 +398,7 @@ const Gallery = () => {
           {/* Thumbnail Strip */}
           <div className="p-4 md:p-6 glass-effect">
             <div className="max-w-6xl mx-auto">
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              <div className="flex gap-2 overflow-x-auto pb-2 thumbnail-scroll">
                 {selectedGallery.images.map((img, idx) => {
                   const imgUrl = typeof img === 'string' ? img : img.url;
                   return (
