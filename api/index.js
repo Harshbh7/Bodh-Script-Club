@@ -127,6 +127,9 @@ async function handleRegistration(req, res) {
         error: 'DUPLICATE_REGISTRATION'
       });
     }
+  } else {
+    // Case C: Check by registration number if NOT logged in (redundant but safe)
+    // We already checked by regNo in Case A, so this is just for logic completeness
   }
 
   // 5. Handle team registration for hackathons
@@ -145,7 +148,7 @@ async function handleRegistration(req, res) {
   // 6. Create the registration
   const registration = new EventRegistration({
     event: event._id,
-    user: loggedInUser ? loggedInUser._id : undefined, // Using undefined instead of null to avoid unique index issues if sparse
+    user: loggedInUser ? loggedInUser._id : null, 
     name: registrationData.name.trim(),
     registrationNo: registrationData.registrationNo.trim().toUpperCase(),
     phoneNumber: registrationData.phoneNumber.trim(),
@@ -297,17 +300,27 @@ const handlers = {
   },
 
   'POST /events': async (req, res) => {
-    await checkAdmin(req);
-    const event = new Event(req.body);
-    await event.save();
-    res.status(201).json(event);
+    try {
+      await checkAdmin(req);
+      const event = new Event(req.body);
+      await event.save();
+      res.status(201).json(event);
+    } catch (error) {
+      console.error('Error creating event:', error);
+      res.status(error.statusCode || 500).json({ message: error.message });
+    }
   },
 
   'PUT /events/:id': async (req, res) => {
-    await checkAdmin(req);
-    const event = await Event.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!event) return res.status(404).json({ message: 'Event not found' });
-    res.status(200).json(event);
+    try {
+      await checkAdmin(req);
+      const event = await Event.findByIdAndUpdate(req.params.id, req.body, { new: true });
+      if (!event) return res.status(404).json({ message: 'Event not found' });
+      res.status(200).json(event);
+    } catch (error) {
+      console.error('Error updating event:', error);
+      res.status(error.statusCode || 500).json({ message: error.message });
+    }
   },
 
   'DELETE /events/:id': async (req, res) => {
@@ -379,21 +392,31 @@ const handlers = {
   },
 
   'POST /members': async (req, res) => {
-    await checkAdmin(req);
-    const member = new Member(req.body);
-    await member.save();
-    res.status(201).json(member);
+    try {
+      await checkAdmin(req);
+      const member = new Member(req.body);
+      await member.save();
+      res.status(201).json(member);
+    } catch (error) {
+      console.error('Error adding member:', error);
+      res.status(error.statusCode || 500).json({ message: error.message });
+    }
   },
 
   'PUT /members/:id': async (req, res) => {
-    await checkAdmin(req);
-    const member = await Member.findByIdAndUpdate(
-      req.params.id, 
-      { ...req.body, updatedAt: new Date() }, 
-      { new: true, runValidators: true }
-    );
-    if (!member) return res.status(404).json({ message: 'Member not found' });
-    res.status(200).json(member);
+    try {
+      await checkAdmin(req);
+      const member = await Member.findByIdAndUpdate(
+        req.params.id, 
+        { ...req.body, updatedAt: new Date() }, 
+        { new: true, runValidators: true }
+      );
+      if (!member) return res.status(404).json({ message: 'Member not found' });
+      res.status(200).json(member);
+    } catch (error) {
+      console.error('Error updating member:', error);
+      res.status(error.statusCode || 500).json({ message: error.message });
+    }
   },
 
   'DELETE /members/:id': async (req, res) => {
@@ -419,9 +442,14 @@ const handlers = {
   },
 
   'GET /submissions': async (req, res) => {
-    await checkAdmin(req);
-    const submissions = await Submission.find().sort({ createdAt: -1 });
-    res.status(200).json(submissions);
+    try {
+      await checkAdmin(req);
+      const submissions = await Submission.find().sort({ submittedAt: -1, createdAt: -1 });
+      res.status(200).json(submissions);
+    } catch (error) {
+      console.error('Error fetching submissions:', error);
+      res.status(error.statusCode || 500).json({ message: error.message });
+    }
   },
 
   'PUT /submissions/:id': async (req, res) => {
@@ -458,9 +486,14 @@ const handlers = {
   },
 
   'GET /testimonials/all': async (req, res) => {
-    await checkAdmin(req);
-    const testimonials = await Testimonial.find().sort({ createdAt: -1 });
-    res.status(200).json(testimonials);
+    try {
+      await checkAdmin(req);
+      const testimonials = await Testimonial.find().sort({ createdAt: -1 });
+      res.status(200).json(testimonials);
+    } catch (error) {
+      console.error('Error fetching testimonials:', error);
+      res.status(error.statusCode || 500).json({ message: error.message });
+    }
   },
 
   'POST /testimonials/submit': async (req, res) => {
@@ -570,10 +603,20 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('🔥 API Error:', error);
     
-    const statusCode = error.message.includes('Authentication') ? 401 : 
-                       error.message.includes('Admin') ? 403 : 500;
+    // Default status code
+    let statusCode = 500;
+    
+    // Custom status code from error object
+    if (error.statusCode) {
+      statusCode = error.statusCode;
+    } else if (error.message.includes('Authentication')) {
+      statusCode = 401;
+    } else if (error.message.includes('Admin')) {
+      statusCode = 403;
+    }
                        
     res.status(statusCode).json({
+      success: false,
       message: error.message || 'Internal Server Error',
       error: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });

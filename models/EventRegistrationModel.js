@@ -30,8 +30,8 @@ const registrationSchema = new mongoose.Schema({
 });
 
 // Professional Indexing for Vercel/Production
-// 1. One user per event (sparse allows guests to register multiple times if user is null)
-registrationSchema.index({ event: 1, user: 1 }, { unique: true, sparse: true });
+// 1. One user per event (only if user is not null)
+registrationSchema.index({ event: 1, user: 1 }, { unique: true, partialFilterExpression: { user: { $exists: true, $ne: null } } });
 
 // 2. One registration number per event (prevent same student registering twice)
 registrationSchema.index({ event: 1, registrationNo: 1 }, { unique: true });
