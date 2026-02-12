@@ -2,7 +2,23 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/**/*.js",
+      "src": "api/index.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/health.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/register.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/create-admin.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/upload-image.js",
       "use": "@vercel/node"
     },
     {
@@ -28,7 +44,7 @@
     },
     {
       "src": "/api/register",
-      "dest": "/api/index.js"
+      "dest": "/api/register.js"
     },
     {
       "src": "/api/(.*)",
