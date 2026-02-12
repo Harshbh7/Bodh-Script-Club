@@ -2,7 +2,6 @@
 import connectDB from '../lib/db.js';
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
 
 // Import all models
 import User from '../models/UserModel.js';
@@ -127,9 +126,6 @@ async function handleRegistration(req, res) {
         error: 'DUPLICATE_REGISTRATION'
       });
     }
-  } else {
-    // Case C: Check by registration number if NOT logged in (redundant but safe)
-    // We already checked by regNo in Case A, so this is just for logic completeness
   }
 
   // 5. Handle team registration for hackathons
@@ -203,14 +199,14 @@ const handlers = {
         return res.status(400).json({ message: 'Email and password are required' });
       }
 
-      // 1. Find user by email
+      // 1. Find user by email - explicitly select password field
       const user = await User.findOne({ email }).select('+password');
       if (!user) {
         console.log(`❌ Login failed: User not found (${email})`);
         return res.status(401).json({ message: 'Invalid email or password' });
       }
 
-      // 2. Verify password
+      // 2. Verify password using the model method
       const isMatch = await user.comparePassword(password);
       if (!isMatch) {
         console.log(`❌ Login failed: Incorrect password for ${email}`);
@@ -373,10 +369,8 @@ const handlers = {
     }
   },
 
-  // CRITICAL: Event Registration Handler (Handles both /api/events/:id/register and /api/register?eventId=...)
+  // CRITICAL: Event Registration Handler
   'POST /events/:id/register': handleRegistration,
-
-  // Alias for /api/register?eventId=...
   'POST /register': handleRegistration,
 
   'GET /events/:id/check-registration': async (req, res) => {
@@ -400,7 +394,6 @@ const handlers = {
 
       res.status(200).json({ isRegistered: !!registration, registration });
     } catch (error) {
-      // If not authenticated, they can't be "registered" as a user
       if (error.statusCode === 401) {
         return res.status(200).json({ isRegistered: false });
       }
@@ -660,7 +653,26 @@ export default async function handler(req, res) {
     // 1. Connect to Database
     await connectDB();
 
-    // 2. Parse URL and Path
+    // 2. Parse request body if not already parsed
+    if (req.method !== 'GET' && req.method !== 'DELETE' && !req.body) {
+      req.body = {};
+      if (req.headers['content-type']?.includes('application/json')) {
+        const chunks = [];
+        for await (const chunk of req) {
+          chunks.push(chunk);
+        }
+        const bodyString = Buffer.concat(chunks).toString();
+        if (bodyString) {
+          try {
+            req.body = JSON.parse(bodyString);
+          } catch (e) {
+            console.error('Failed to parse JSON body:', e);
+          }
+        }
+      }
+    }
+
+    // 3. Parse URL and Path
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     let path = url.pathname;
     
@@ -677,7 +689,7 @@ export default async function handler(req, res) {
     const routeKey = `${req.method} ${path}`;
     console.log(`🚀 API Request: ${routeKey}`);
 
-    // 3. Find Matching Handler (with dynamic parameters)
+    // 4. Find Matching Handler (with dynamic parameters)
     let matchedHandler = handlers[routeKey];
     let params = {};
 
@@ -706,7 +718,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 4. Execute Handler
+    // 5. Execute Handler
     if (matchedHandler) {
       req.params = params;
       req.query = Object.fromEntries(url.searchParams);
