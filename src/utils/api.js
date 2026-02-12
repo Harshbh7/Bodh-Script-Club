@@ -8,7 +8,7 @@ const getApiUrl = () => {
   if (import.meta.env.PROD) {
     return '/api';
   }
-  
+
   // In development, use localhost
   return import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 };
@@ -56,7 +56,7 @@ api.interceptors.response.use(
       message: error.message,
       data: error.response?.data
     });
-    
+
     // If token is invalid or expired, redirect to login (but not for logout request)
     const isLogoutRequest = error.config?.url?.includes?.('logout');
     if (!isLogoutRequest && (error.response?.status === 401 || error.response?.status === 403)) {
@@ -92,10 +92,10 @@ export const eventsAPI = {
       },
       timeout: 30000,
     });
-    
+
     const maxRetries = 3;
     let lastError;
-    
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`🔄 Registration attempt ${attempt}/${maxRetries} for event: ${id}`);
@@ -110,14 +110,14 @@ export const eventsAPI = {
           url: error.config?.url,
           data: error.response?.data
         });
-        
+
         if (error.response?.status >= 400 && error.response?.status < 500) {
           if (error.response.status !== 408 && error.response.status !== 429) {
             console.log(`⚠️ Client error detected, not retrying`);
             throw error;
           }
         }
-        
+
         if (attempt < maxRetries) {
           const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
           console.log(`⏳ Waiting ${waitTime}ms before retry...`);
@@ -125,7 +125,7 @@ export const eventsAPI = {
         }
       }
     }
-    
+
     console.error(`❌ All ${maxRetries} registration attempts failed`);
     throw lastError;
   },
@@ -155,6 +155,7 @@ export const submissionsAPI = {
   getAll: () => api.get('/submissions'),
   export: () => api.get('/submissions/export', { responseType: 'blob' }),
   updateStatus: (id, status) => api.put(`/submissions/${id}`, { status }),
+  delete: (id) => api.delete(`/submissions/${id}`),
 };
 
 // About API
